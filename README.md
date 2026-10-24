@@ -9,7 +9,7 @@ RDesk 是一个类似 RustDesk 的远程桌面。这个仓库是 **Mac 被控端
 - **真实光标**：手机上显示 Mac 当前的光标样子（箭头、输入竖线、手形、拖拽…）
 - **鼠标模式**：手指滑动移光标、点按就是点击，跟 RustDesk 一样不会点偏
 
-[English](#english) · 介绍页：https://gphdigital.com/apps/rdesk
+[English](#english) · 介绍页：https://gphdigital.com/apps/rdesk-zh
 
 ## 需要
 
@@ -58,7 +58,7 @@ MIT © GPH Digital LLC
 
 ## English
 
-**RDesk Host** is the macOS side of RDesk, a RustDesk-style remote desktop you drive from the **RDesk** iPhone app.
+**RDesk Host** is the macOS side of RDesk, a RustDesk-style remote desktop you drive from the **RDesk** iPhone app. Product page: https://gphdigital.com/apps/rdesk
 
 - Peer-to-peer over **Tailscale**: no relay servers, no public IP, no port forwarding
 - **End-to-end encrypted** (AES-256-GCM, key derived from device ID + password)
