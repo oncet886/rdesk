@@ -1,0 +1,7 @@
+# iOS 主控端代码与内部资料不在本仓库
+ios/
+docs/INTERNAL.md
+bin/
+dist/
+*.log
+.DS_Store

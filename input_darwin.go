@@ -1,0 +1,341 @@
+//go:build darwin
+
+package main
+
+/*
+#cgo LDFLAGS: -framework CoreGraphics -framework ApplicationServices -framework CoreFoundation -framework AppKit
+#include <CoreGraphics/CoreGraphics.h>
+#include <ApplicationServices/ApplicationServices.h>
+#import <AppKit/AppKit.h>
+#include <stdlib.h>
+
+static int axTrusted(int prompt) {
+	const void *keys[] = { kAXTrustedCheckOptionPrompt };
+	const void *vals[] = { prompt ? kCFBooleanTrue : kCFBooleanFalse };
+	CFDictionaryRef opts = CFDictionaryCreate(NULL, keys, vals, 1,
+		&kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	int ok = AXIsProcessTrustedWithOptions(opts);
+	CFRelease(opts);
+	return ok;
+}
+
+static int screenAccess(int request) {
+	if (CGPreflightScreenCaptureAccess()) return 1;
+	if (request) return CGRequestScreenCaptureAccess();
+	return 0;
+}
+
+static void postMouse(int type, double x, double y, int button, int clicks) {
+	CGEventRef e = CGEventCreateMouseEvent(NULL, (CGEventType)type, CGPointMake(x, y), (CGMouseButton)button);
+	if (clicks > 0) CGEventSetIntegerValueField(e, kCGMouseEventClickState, clicks);
+	CGEventPost(kCGHIDEventTap, e);
+	CFRelease(e);
+}
+
+static void postScroll(int dy, int dx) {
+	CGEventRef e = CGEventCreateScrollWheelEvent2(NULL, kCGScrollEventUnitPixel, 2, dy, dx, 0);
+	CGEventPost(kCGHIDEventTap, e);
+	CFRelease(e);
+}
+
+static void postKey(int code, int down, unsigned long long flags) {
+	CGEventRef e = CGEventCreateKeyboardEvent(NULL, (CGKeyCode)code, down ? true : false);
+	CGEventSetFlags(e, (CGEventFlags)flags);
+	CGEventPost(kCGHIDEventTap, e);
+	CFRelease(e);
+}
+
+static void cursorPos(double *x, double *y) {
+	CGEventRef e = CGEventCreate(NULL);
+	CGPoint p = CGEventGetLocation(e);
+	CFRelease(e);
+	*x = p.x; *y = p.y;
+}
+
+// 当前系统光标的样子（箭头 / 输入竖线 / 手形 / 拖拽 / 缩放箭头…）。没变化返回 0。
+static NSData *gLastCursorPNG = nil;
+static void cursorShapeReset(void) { gLastCursorPNG = nil; }
+static int cursorShape(uint8_t **out, double *w, double *h, double *hx, double *hy) {
+	@autoreleasepool {
+		NSCursor *c = [NSCursor currentSystemCursor];
+		if (!c) return 0;
+		NSImage *img = c.image;
+		NSSize sz = img.size;
+		if (sz.width <= 0 || sz.height <= 0) return 0;
+		NSRect r = NSMakeRect(0, 0, sz.width * 2, sz.height * 2); // 取 2x 清晰版本
+		CGImageRef cg = [img CGImageForProposedRect:&r context:nil hints:nil];
+		if (!cg) return 0;
+		NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithCGImage:cg];
+		NSData *png = [rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+		if (!png || [png isEqualToData:gLastCursorPNG]) return 0;
+		gLastCursorPNG = png;
+		*w = sz.width; *h = sz.height; *hx = c.hotSpot.x; *hy = c.hotSpot.y;
+		*out = malloc(png.length);
+		memcpy(*out, png.bytes, png.length);
+		return (int)png.length;
+	}
+}
+
+static void postUnicode(const UniChar *s, int n) {
+	CGEventRef d = CGEventCreateKeyboardEvent(NULL, 0, true);
+	CGEventRef u = CGEventCreateKeyboardEvent(NULL, 0, false);
+	CGEventSetFlags(d, 0);
+	CGEventSetFlags(u, 0);
+	CGEventKeyboardSetUnicodeString(d, n, s);
+	CGEventKeyboardSetUnicodeString(u, n, s);
+	CGEventPost(kCGHIDEventTap, d);
+	CGEventPost(kCGHIDEventTap, u);
+	CFRelease(d);
+	CFRelease(u);
+}
+*/
+import "C"
+
+import (
+	"errors"
+	"math"
+	"strings"
+	"sync"
+	"time"
+	"unicode/utf16"
+	"unsafe"
+)
+
+var in struct {
+	sync.Mutex
+	x, y      float64
+	buttons   [3]bool
+	keys      map[string]bool
+	lastDown  time.Time
+	lastBtn   int
+	lastX     float64
+	lastY     float64
+	clicks    int
+	trustedOK bool
+}
+
+func inputInit() error {
+	in.keys = map[string]bool{}
+	var msg []string
+	if C.screenAccess(1) == 0 {
+		msg = append(msg, "「屏幕录制」")
+	}
+	if C.axTrusted(1) == 0 {
+		msg = append(msg, "「辅助功能」")
+	} else {
+		in.trustedOK = true
+	}
+	if len(msg) > 0 {
+		return errors.New("需要在 系统设置 → 隐私与安全性 中给运行本程序的 App（终端 / 本程序）打开 " +
+			strings.Join(msg, "和") + " 权限，打开后重启本程序。没有「辅助功能」只能看不能控。")
+	}
+	return nil
+}
+
+func inputAvailable() bool { return C.axTrusted(0) == 1 }
+
+// 权限状态：屏幕录制、辅助功能
+func permStatus() (screen, access bool) { return C.screenAccess(0) == 1, C.axTrusted(0) == 1 }
+
+// 光标样子变了就返回 PNG（2x）和尺寸/热点（单位：点）
+func cursorShape() (png []byte, w, h, hx, hy float64, ok bool) {
+	var p *C.uint8_t
+	var cw, ch, chx, chy C.double
+	n := C.cursorShape(&p, &cw, &ch, &chx, &chy)
+	if n == 0 {
+		return nil, 0, 0, 0, 0, false
+	}
+	png = C.GoBytes(unsafe.Pointer(p), n)
+	C.free(unsafe.Pointer(p))
+	return png, float64(cw), float64(ch), float64(chx), float64(chy), true
+}
+
+func cursorShapeReset() { C.cursorShapeReset() }
+
+// 当前鼠标位置（全局坐标，和显示器 bounds 同一坐标系）
+func cursorPos() (float64, float64, bool) {
+	var x, y C.double
+	C.cursorPos(&x, &y)
+	return float64(x), float64(y), true
+}
+
+// CGEvent 类型常量
+const (
+	evLeftDown, evLeftUp    = 1, 2
+	evRightDown, evRightUp  = 3, 4
+	evMoved                 = 5
+	evLeftDrag, evRightDrag = 6, 7
+	evOtherDown, evOtherUp  = 25, 26
+	evOtherDrag             = 27
+)
+
+// 浏览器按钮编号: 0 左 1 中 2 右 ；CGMouseButton: 0 左 1 右 2 中
+func cgButton(b int) int {
+	switch b {
+	case 1:
+		return 2
+	case 2:
+		return 1
+	}
+	return 0
+}
+
+func mouseMove(x, y float64) {
+	in.Lock()
+	defer in.Unlock()
+	in.x, in.y = x, y
+	t, b := evMoved, 0
+	switch {
+	case in.buttons[0]:
+		t = evLeftDrag
+	case in.buttons[2]:
+		t, b = evRightDrag, 1
+	case in.buttons[1]:
+		t, b = evOtherDrag, 2
+	}
+	C.postMouse(C.int(t), C.double(x), C.double(y), C.int(b), 0)
+}
+
+func mouseButton(btn int, down bool, x, y float64) {
+	if btn < 0 || btn > 2 {
+		return
+	}
+	in.Lock()
+	defer in.Unlock()
+	in.x, in.y = x, y
+	if down {
+		// 双击/三击：macOS 需要在事件里带上点击次数
+		if btn == in.lastBtn && time.Since(in.lastDown) < 450*time.Millisecond &&
+			math.Abs(x-in.lastX) < 6 && math.Abs(y-in.lastY) < 6 {
+			in.clicks++
+		} else {
+			in.clicks = 1
+		}
+		in.lastDown, in.lastBtn, in.lastX, in.lastY = time.Now(), btn, x, y
+	}
+	in.buttons[btn] = down
+	var t int
+	switch btn {
+	case 0:
+		t = map[bool]int{true: evLeftDown, false: evLeftUp}[down]
+	case 2:
+		t = map[bool]int{true: evRightDown, false: evRightUp}[down]
+	default:
+		t = map[bool]int{true: evOtherDown, false: evOtherUp}[down]
+	}
+	C.postMouse(C.int(t), C.double(x), C.double(y), C.int(cgButton(btn)), C.int(max(in.clicks, 1)))
+}
+
+func mouseWheel(dx, dy int) {
+	// 浏览器 deltaY>0 是向下滚；CG 的 wheel1>0 是向上
+	C.postScroll(C.int(-dy), C.int(-dx))
+}
+
+const (
+	flagShift   = 0x00020000
+	flagControl = 0x00040000
+	flagAlt     = 0x00080000
+	flagCommand = 0x00100000
+)
+
+func modFlags() uint64 {
+	var f uint64
+	if in.keys["ShiftLeft"] || in.keys["ShiftRight"] {
+		f |= flagShift
+	}
+	if in.keys["ControlLeft"] || in.keys["ControlRight"] {
+		f |= flagControl
+	}
+	if in.keys["AltLeft"] || in.keys["AltRight"] {
+		f |= flagAlt
+	}
+	if in.keys["MetaLeft"] || in.keys["MetaRight"] || in.keys["OSLeft"] || in.keys["OSRight"] {
+		f |= flagCommand
+	}
+	return f
+}
+
+func keyEvent(code string, down bool) {
+	vk, ok := macKeys[code]
+	if !ok {
+		return
+	}
+	in.Lock()
+	defer in.Unlock()
+	if down {
+		in.keys[code] = true
+	} else {
+		delete(in.keys, code)
+	}
+	C.postKey(C.int(vk), boolInt(down), C.ulonglong(modFlags()))
+}
+
+func typeText(s string) {
+	in.Lock()
+	defer in.Unlock()
+	for i, line := range strings.Split(s, "\n") {
+		if i > 0 {
+			C.postKey(0x24, 1, 0)
+			C.postKey(0x24, 0, 0)
+		}
+		u := utf16.Encode([]rune(line))
+		for len(u) > 0 {
+			n := min(len(u), 20)
+			C.postUnicode((*C.UniChar)(unsafe.Pointer(&u[0])), C.int(n))
+			u = u[n:]
+		}
+	}
+}
+
+// 断开时把按着的键和鼠标都松开，避免被控端"卡键"
+func releaseAll() {
+	in.Lock()
+	keys := in.keys
+	in.keys = map[string]bool{}
+	btns := in.buttons
+	x, y := in.x, in.y
+	in.Unlock()
+	for code := range keys {
+		if vk, ok := macKeys[code]; ok {
+			C.postKey(C.int(vk), 0, 0)
+		}
+	}
+	for b, d := range btns {
+		if d {
+			mouseButton(b, false, x, y)
+		}
+	}
+}
+
+func boolInt(b bool) C.int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// KeyboardEvent.code -> macOS 虚拟键码 (kVK_*)
+var macKeys = map[string]int{
+	"KeyA": 0x00, "KeyS": 0x01, "KeyD": 0x02, "KeyF": 0x03, "KeyH": 0x04, "KeyG": 0x05, "KeyZ": 0x06,
+	"KeyX": 0x07, "KeyC": 0x08, "KeyV": 0x09, "IntlBackslash": 0x0A, "KeyB": 0x0B, "KeyQ": 0x0C,
+	"KeyW": 0x0D, "KeyE": 0x0E, "KeyR": 0x0F, "KeyY": 0x10, "KeyT": 0x11, "Digit1": 0x12,
+	"Digit2": 0x13, "Digit3": 0x14, "Digit4": 0x15, "Digit6": 0x16, "Digit5": 0x17, "Equal": 0x18,
+	"Digit9": 0x19, "Digit7": 0x1A, "Minus": 0x1B, "Digit8": 0x1C, "Digit0": 0x1D,
+	"BracketRight": 0x1E, "KeyO": 0x1F, "KeyU": 0x20, "BracketLeft": 0x21, "KeyI": 0x22,
+	"KeyP": 0x23, "Enter": 0x24, "KeyL": 0x25, "KeyJ": 0x26, "Quote": 0x27, "KeyK": 0x28,
+	"Semicolon": 0x29, "Backslash": 0x2A, "Comma": 0x2B, "Slash": 0x2C, "KeyN": 0x2D, "KeyM": 0x2E,
+	"Period": 0x2F, "Tab": 0x30, "Space": 0x31, "Backquote": 0x32, "Backspace": 0x33,
+	"Escape": 0x35, "MetaRight": 0x36, "MetaLeft": 0x37, "OSRight": 0x36, "OSLeft": 0x37,
+	"ShiftLeft": 0x38, "CapsLock": 0x39, "AltLeft": 0x3A, "ControlLeft": 0x3B, "ShiftRight": 0x3C,
+	"AltRight": 0x3D, "ControlRight": 0x3E, "F17": 0x40, "NumpadDecimal": 0x41,
+	"NumpadMultiply": 0x43, "NumpadAdd": 0x45, "NumLock": 0x47, "NumpadDivide": 0x4B,
+	"NumpadEnter": 0x4C, "NumpadSubtract": 0x4E, "F18": 0x4F, "F19": 0x50, "NumpadEqual": 0x51,
+	"Numpad0": 0x52, "Numpad1": 0x53, "Numpad2": 0x54, "Numpad3": 0x55, "Numpad4": 0x56,
+	"Numpad5": 0x57, "Numpad6": 0x58, "Numpad7": 0x59, "F20": 0x5A, "Numpad8": 0x5B,
+	"Numpad9": 0x5C, "IntlYen": 0x5D, "IntlRo": 0x5E, "NumpadComma": 0x5F, "F5": 0x60, "F6": 0x61,
+	"F7": 0x62, "F3": 0x63, "F8": 0x64, "F9": 0x65, "Lang2": 0x66, "F11": 0x67, "Lang1": 0x68,
+	"F13": 0x69, "F16": 0x6A, "F14": 0x6B, "F10": 0x6D, "ContextMenu": 0x6E, "F12": 0x6F,
+	"F15": 0x71, "Insert": 0x72, "Help": 0x72, "Home": 0x73, "PageUp": 0x74, "Delete": 0x75,
+	"F4": 0x76, "End": 0x77, "F2": 0x78, "PageDown": 0x79, "F1": 0x7A, "ArrowLeft": 0x7B,
+	"ArrowRight": 0x7C, "ArrowDown": 0x7D, "ArrowUp": 0x7E,
+}

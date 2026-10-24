@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RDesk 被控端</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --line: #e4e7ec; --text: #1d2433; --muted: #6b7385;
+    --ok: #12805c; --ok-bg: #e7f6ef; --warn: #a15c00; --warn-bg: #fff4e0; --bad: #c0262d; --bad-bg: #fdecec;
+    --info: #3b5bdb; --info-bg: #eef2ff;
+    --s1: #3b82f6; --s2: #10b981; --s3: #f59e0b; --s4: #8b5cf6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d1017; --card: #151a23; --line: #262d3a; --text: #e6e9ef; --muted: #8a93a6;
+      --ok: #4ade80; --ok-bg: #12261c; --warn: #fbbf24; --warn-bg: #2a2110; --bad: #f87171; --bad-bg: #2c1515;
+      --info: #93a8ff; --info-bg: #171d33; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  h1 { font-size: 20px; margin: 0; }
+  .pill { font-size: 12px; padding: 2px 10px; border-radius: 99px; background: var(--info-bg); color: var(--info); }
+  .pill.on { background: var(--ok-bg); color: var(--ok); }
+  .muted { color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 14px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .k { font-size: 12px; color: var(--muted); }
+  .v { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .v small { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 3px; }
+  .verdicts { display: flex; flex-direction: column; gap: 8px; }
+  .vd { padding: 10px 14px; border-radius: 10px; font-size: 14px; }
+  .vd.ok { background: var(--ok-bg); color: var(--ok); }
+  .vd.warn { background: var(--warn-bg); color: var(--warn); }
+  .vd.bad { background: var(--bad-bg); color: var(--bad); }
+  .vd.info { background: var(--info-bg); color: var(--info); }
+  h2 { font-size: 15px; margin: 22px 0 8px; }
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; }
+  canvas { width: 100%; height: 180px; display: block; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td { padding: 5px 0; border-bottom: 1px solid var(--line); }
+  td:first-child { color: var(--muted); width: 40%; }
+  .conn { padding: 18px 20px; margin-bottom: 8px; }
+  .conn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .big { font-size: 22px; font-weight: 700; letter-spacing: .3px; margin-top: 2px; word-break: break-all; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .btn { border: 1px solid var(--line); background: var(--card); color: var(--text); padding: 7px 14px; border-radius: 9px; font: inherit; cursor: pointer; }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--s1); border-color: var(--s1); color: #fff; }
+  .btn.danger { color: var(--bad); }
+  .btn.small { padding: 2px 9px; font-size: 12px; margin-left: 6px; vertical-align: middle; }
+  .perms { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; }
+  .perm-ok { color: var(--ok); } .perm-bad { color: var(--bad); }
+  .perms a { color: var(--info); }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>RDesk 被控端</h1>
+    <span class="pill" id="state">等待连接</span>
+    <span class="muted" id="sub"></span>
+  </header>
+
+  <section class="card conn">
+    <div class="conn-grid">
+      <div><div class="k">远程地址（填到 iPhone「RDesk 远控」里）</div><div class="big mono" id="addr">–</div></div>
+      <div><div class="k">设备 ID</div><div class="big mono" id="cid">–</div></div>
+      <div><div class="k">密码</div><div class="big mono"><span id="pw">••••••••</span><button class="btn small" id="showpw">显示</button></div></div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="copy">复制地址 / ID / 密码</button>
+      <button class="btn" id="newpw">换新密码</button>
+      <button class="btn danger" id="quit">退出被控端</button>
+    </div>
+    <div class="perms" id="perms"></div>
+    <div class="perms" id="ts"></div>
+  </section>
+
+  <div id="diagArea">
+  <h2>诊断结论</h2>
+  <div class="verdicts" id="verdicts"></div>
+
+  <div class="grid" id="nums"></div>
+
+  <div class="charts">
+    <div class="card">
+      <div class="k">帧率（fps）</div>
+      <canvas id="c1"></canvas>
+      <div class="legend"><span><i style="background:var(--s1)"></i>截屏</span><span><i style="background:var(--s2)"></i>发出</span><span><i style="background:var(--s3)"></i>手机显示</span></div>
+    </div>
+    <div class="card">
+      <div class="k">延迟（ms）</div>
+      <canvas id="c2"></canvas>
+      <div class="legend"><span><i style="background:var(--s1)"></i>帧往返（发出→手机显示→确认）</span><span><i style="background:var(--s2)"></i>心跳往返</span><span><i style="background:var(--s4)"></i>Tailscale ping</span></div>
+    </div>
+  </div>
+
+  <div class="two" style="margin-top:10px">
+    <div class="card"><div class="k" style="margin-bottom:6px">本次连接</div><table id="sess"></table></div>
+    <div class="card"><div class="k" style="margin-bottom:6px">手机端上报</div><table id="viewer"></table></div>
+  </div>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const tsHist = [];
+
+function chart(el, series, hist) {
+  const dpr = devicePixelRatio || 1, w = el.clientWidth, h = el.clientHeight;
+  el.width = w * dpr; el.height = h * dpr;
+  const g = el.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
+  const pts = hist.slice(-120);
+  let maxV = 10;
+  for (const s of series) for (const p of pts) maxV = Math.max(maxV, s.get(p) || 0);
+  maxV = Math.ceil(maxV * 1.15 / 10) * 10;
+  g.strokeStyle = css("--line"); g.fillStyle = css("--muted"); g.font = "11px -apple-system"; g.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = 4 + (h - 20) * i / 4;
+    g.beginPath(); g.moveTo(30, y); g.lineTo(w, y); g.stroke();
+    g.fillText(Math.round(maxV * (1 - i / 4)), 0, y + 4);
+  }
+  for (const s of series) {
+    g.strokeStyle = css(s.color); g.lineWidth = 2; g.beginPath();
+    let started = false;
+    pts.forEach((p, i) => {
+      const v = s.get(p); if (v == null || v === 0 && s.skipZero) { started = false; return; }
+      const x = 30 + (w - 30) * i / Math.max(1, 119), y = 4 + (h - 20) * (1 - v / maxV);
+      started ? g.lineTo(x, y) : g.moveTo(x, y); started = true;
+    });
+    g.stroke();
+  }
+}
+
+const fmt = (v, d = 0) => v == null || isNaN(v) ? "–" : Number(v).toFixed(d);
+
+async function tick() {
+  let d;
+  try { d = await (await fetch("diag.json", { cache: "no-store" })).json(); }
+  catch { $("state").textContent = "rdesk 没在运行"; $("state").className = "pill"; return; }
+  $("state").textContent = d.active ? "已连接" : "等待连接";
+  $("state").className = "pill" + (d.active ? " on" : "");
+  if (d.diag === false) { $("diagArea").style.display = "none"; $("sub").textContent = d.active ? "手机已连接" : "打开 iPhone 上的「RDesk 远控」连接这台电脑"; return; }
+  $("sub").textContent = d.active ? `控制端 ${d.viewerIP} · ${d.codec || "握手中"} · 已连接 ${Math.round((Date.now() - d.since) / 1000)} 秒` : "";
+
+  $("verdicts").innerHTML = (d.verdicts || []).map((v) => `<div class="vd ${v.level}">${v.msg}</div>`).join("");
+
+  const n = d.now || {}, ts = d.tailscale || {};
+  const cards = [
+    ["截屏帧率", fmt(n.cap), "fps"], ["编码帧率", fmt(n.enc), "fps"], ["发出帧率", fmt(n.sent), "fps"],
+    ["手机显示", fmt(n.view), "fps"], ["码率", fmt(n.kbps), "kbps"], ["帧往返", fmt(n.ack), "ms"],
+    ["心跳往返", fmt(n.ping), "ms"], ["Tailscale", ts.path ? fmt(ts.pingMs) : "–", ts.path ? "ms" : ""],
+    ["编码耗时", fmt(n.encLat, 1), "ms"], ["网络暂停", fmt(n.pause), "次/秒"], ["键鼠事件", fmt(n.input), "/秒"], ["声音", n.audio ? fmt(n.audio) : "关", n.audio ? "包/秒" : ""], ["声音电平", n.audio ? fmt((n.audioPk || 0) * 100) : "–", n.audio ? "%" : ""],
+  ];
+  $("nums").innerHTML = cards.map(([k, v, u]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}<small>${u}</small></div></div>`).join("");
+
+  const hist = d.hist || [];
+  if (ts.at && (!tsHist.length || tsHist[tsHist.length - 1].at !== ts.at)) tsHist.push(ts);
+  const tsAt = (p) => { let best = null; for (const t of tsHist) if (t.at <= p.t + 1000) best = t; return best && best.pingMs; };
+  chart($("c1"), [{ color: "--s1", get: (p) => p.cap }, { color: "--s2", get: (p) => p.sent }, { color: "--s3", get: (p) => p.view }], hist);
+  chart($("c2"), [{ color: "--s1", get: (p) => p.ack, skipZero: true }, { color: "--s2", get: (p) => p.ping, skipZero: true }, { color: "--s4", get: tsAt, skipZero: true }], hist);
+
+  const set = d.settings || {};
+  const rows = [
+    ["Tailscale 路径", ts.path || ts.err || "–"], ["画质", `质量 ${set.q ?? "–"} · 最大宽 ${set.maxw ?? "–"} · ${set.fps ?? "–"} fps`],
+    ["码率（自适应）", `当前 ${d.kbpsNow ?? "–"} / 上限 ${d.kbpsTarget ?? "–"} kbps`], ["累计发出帧", d.sentFrames ?? "–"], ["其中关键帧", d.keyFrames ?? "–"], ["累计网络暂停", d.pauses ?? "–"],
+  ];
+  $("sess").innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+  const vw = d.viewer || {};
+  const names = { fps: "显示帧率", rtt: "心跳往返 ms", kbps: "接收 kbps", decodeMs: "收到→送显 ms", connect: "连接耗时", dropped: "丢弃帧", mode: "操作模式", orient: "屏幕方向", device: "设备", app: "App 版本", net: "网络" };
+  $("viewer").innerHTML = Object.keys(vw).length ? Object.entries(vw).map(([k, v]) => `<tr><td>${names[k] || k}</td><td>${typeof v === "number" ? fmt(v, v % 1 ? 1 : 0) : v}</td></tr>`).join("") : `<tr><td>–</td><td class="muted">新版 App 才会上报</td></tr>`;
+}
+let info = null, showPw = false;
+const H = { "X-RDesk": "1" };
+async function loadInfo() {
+  try { info = await (await fetch("api/info", { headers: H, cache: "no-store" })).json(); } catch { return; }
+  $("addr").textContent = info.addr || "–";
+  $("cid").textContent = info.id || "–";
+  $("pw").textContent = showPw ? info.password : "••••••••";
+  const perm = (ok, name, pane) => ok ? `<span class="perm-ok">✓ ${name}</span>` :
+    `<span class="perm-bad">✗ ${name}未开启</span> <a href="x-apple.systempreferences:com.apple.preference.security?${pane}">去开启</a>`;
+  $("perms").innerHTML = perm(info.screen, "屏幕录制", "Privacy_ScreenCapture") + perm(info.access, "辅助功能（键鼠控制）", "Privacy_Accessibility") +
+    `<span class="muted">${{ tailscale: "Tailscale 直连", cloudflare: "Cloudflare 隧道", waiting: "等待 Tailscale", local: "本机测试", relay: "自建中继" }[info.mode] || info.mode} · v${info.version}</span>`;
+  renderTS();
+}
+function renderTS() {
+  if (!info) return;
+  let h;
+  if (info.tsIP) h = `<span class="perm-ok">✓ Tailscale 已连接（本机 ${info.tsIP}）</span><span class="muted">iPhone 上也要打开 Tailscale 并登录同一个账号</span>`;
+  else if (info.tsInstalled) h = `<span class="perm-bad">✗ Tailscale 已安装但没连接</span><span>打开菜单栏的 Tailscale 并登录，连上后这里会自动继续</span>`;
+  else h = `<span class="perm-bad">✗ 没检测到 Tailscale</span><a href="https://tailscale.com/download/mac" target="_blank" rel="noopener">下载 Tailscale（免费）</a><span class="muted">安装登录后自动继续；iPhone 上也装一个并登录同一账号</span>`;
+  $("ts").innerHTML = h;
+}
+$("showpw").onclick = () => { showPw = !showPw; $("showpw").textContent = showPw ? "隐藏" : "显示"; loadInfo(); };
+$("copy").onclick = async () => {
+  if (!info) return;
+  await navigator.clipboard.writeText(`地址：${info.addr}\n设备 ID：${info.id}\n密码：${info.password}`);
+  $("copy").textContent = "已复制"; setTimeout(() => $("copy").textContent = "复制地址 / ID / 密码", 1500);
+};
+$("newpw").onclick = async () => {
+  if (!confirm("换新密码后，正在连接的手机会断开，需要用新密码重新连接。继续？")) return;
+  await fetch("api/newpw", { method: "POST", headers: H });
+  showPw = true; $("showpw").textContent = "隐藏"; loadInfo();
+};
+$("quit").onclick = async () => {
+  if (!confirm("退出后手机将无法连接这台电脑，直到再次打开 RDesk Host。确定退出？")) return;
+  await fetch("api/quit", { method: "POST", headers: H });
+  document.body.innerHTML = "<main><h1>RDesk 被控端已退出</h1><p class='muted'>重新打开「RDesk Host」即可再次连接。</p></main>";
+};
+loadInfo(); setInterval(loadInfo, 3000);
+tick(); setInterval(tick, 1000);
+addEventListener("resize", tick);
+</script>
+</body>
+</html>

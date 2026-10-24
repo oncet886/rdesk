@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<title>rdesk 远程桌面</title>
+<style>
+  :root {
+    --bg: #0b0d12; --panel: #151922; --line: #262c39; --text: #e8ebf1; --muted: #8b93a7;
+    --accent: #3b82f6; --accent-2: #2563eb; --danger: #ef4444; --ok: #22c55e;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+
+  /* 登录页 */
+  #login { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+  .card { width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 16px; padding: 28px 24px; }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .brand svg { flex: none; }
+  h1 { font-size: 20px; margin: 0; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+  .field { width: 100%; height: 46px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line);
+    background: #0f131b; outline: none; font-size: 17px; letter-spacing: .5px; }
+  .field:focus { border-color: var(--accent); }
+  .primary { width: 100%; height: 48px; margin-top: 22px; border: 0; border-radius: 10px; background: var(--accent);
+    font-weight: 600; font-size: 16px; cursor: pointer; }
+  .primary:hover { background: var(--accent-2); }
+  .primary:disabled { opacity: .6; cursor: default; }
+  #msg { min-height: 22px; margin-top: 14px; font-size: 14px; color: var(--muted); text-align: center; }
+  #msg.err { color: var(--danger); }
+  .lock { display: flex; gap: 6px; align-items: center; justify-content: center; color: var(--muted);
+    font-size: 12px; margin-top: 18px; }
+
+  /* 远程画面 */
+  #session { position: fixed; inset: 0; display: none; background: #000; overflow: hidden; touch-action: none; }
+  #screen { position: absolute; left: 0; top: 0; image-rendering: auto; cursor: default; outline: none; }
+  #bar { position: absolute; top: calc(env(safe-area-inset-top) + 8px); left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 4px; padding: 4px; background: rgba(21,25,34,.92);
+    border: 1px solid var(--line); border-radius: 12px; backdrop-filter: blur(8px); z-index: 5;
+    max-width: calc(100vw - 16px); overflow-x: auto; scrollbar-width: none; }
+  #bar.min > :not(#toggleBar) { display: none; }
+  .tb { height: 34px; min-width: 34px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent;
+    cursor: pointer; white-space: nowrap; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+  .tb:hover { background: #222838; }
+  .tb.on { background: var(--accent); }
+  .tb.red { color: #fca5a5; }
+  .sep { width: 1px; height: 20px; background: var(--line); margin: 0 2px; flex: none; }
+  #stats { font-size: 12px; color: var(--muted); padding: 0 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  select.tb { appearance: none; background: transparent; }
+  select.tb option { background: var(--panel); }
+  #keys { position: absolute; top: calc(env(safe-area-inset-top) + 54px); left: 50%; transform: translateX(-50%);
+    display: none; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 8px; max-width: min(520px, calc(100vw - 16px));
+    background: rgba(21,25,34,.95); border: 1px solid var(--line); border-radius: 12px; z-index: 5; }
+  #keys.show { display: flex; }
+  #keys .tb { background: #1d2230; }
+  #keys .tb.on { background: var(--accent); }
+  #ime { position: absolute; left: -1000px; top: 0; width: 10px; height: 10px; opacity: 0; font-size: 16px; }
+  #notice { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px); transform: translateX(-50%);
+    background: rgba(21,25,34,.95); border: 1px solid var(--line); padding: 10px 16px; border-radius: 10px;
+    font-size: 14px; display: none; z-index: 6; max-width: calc(100vw - 32px); text-align: center; }
+  #wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <form class="card" id="form" autocomplete="off">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      <h1>rdesk 远程桌面</h1>
+    </div>
+    <p class="sub">输入被控电脑上显示的设备 ID 和密码</p>
+    <label for="id">设备 ID</label>
+    <input class="field" id="id" inputmode="numeric" autocapitalize="off" spellcheck="false" placeholder="例如 123456789">
+    <label for="pw">密码</label>
+    <input class="field" id="pw" type="password" autocapitalize="off" spellcheck="false" placeholder="被控端显示的密码">
+    <button class="primary" id="go" type="submit">连接</button>
+    <div id="msg"></div>
+    <div class="lock">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      端到端加密 · 中继服务器看不到画面内容
+    </div>
+  </form>
+</div>
+
+<div id="session">
+  <div id="wait">正在等待画面…</div>
+  <canvas id="screen" tabindex="0"></canvas>
+  <div id="bar">
+    <button class="tb" id="toggleBar" title="收起/展开工具栏">☰</button>
+    <span id="stats">–</span>
+    <div class="sep"></div>
+    <select class="tb" id="quality" title="画质">
+      <option value="low">流畅</option>
+      <option value="mid" selected>标准</option>
+      <option value="high">高清</option>
+    </select>
+    <select class="tb" id="display" title="显示器" style="display:none"></select>
+    <button class="tb" id="kbBtn" title="打开键盘">⌨︎ 键盘</button>
+    <button class="tb" id="keysBtn" title="特殊按键">特殊键</button>
+    <button class="tb" id="touchMode" title="单指拖动的作用" style="display:none">单指: 滚动</button>
+    <button class="tb" id="fitBtn" title="缩放">适应</button>
+    <button class="tb" id="fsBtn" title="全屏">全屏</button>
+    <div class="sep"></div>
+    <button class="tb red" id="quit">断开</button>
+  </div>
+  <div id="keys"></div>
+  <textarea id="ime" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea>
+  <div id="notice"></div>
+</div>
+
+<script>
+"use strict";
+const $ = (s) => document.getElementById(s);
+const enc = new TextEncoder(), dec = new TextDecoder();
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+
+// ---------- 协议常量（与 host.go 一致）----------
+const M = { HELLO: 1, ACK: 2, PING: 3, MOVE: 0x10, BUTTON: 0x11, WHEEL: 0x12, KEY: 0x20, TEXT: 0x21, SETTINGS: 0x30,
+            HELLO_OK: 0x81, FRAME: 0x82, PONG: 0x83, INFO: 0x84 };
+const PRESETS = { low: { q: 45, maxw: 1280, fps: 15 }, mid: { q: 65, maxw: 1920, fps: 20 }, high: { q: 85, maxw: 2560, fps: 30 } };
+
+// ---------- 加密（与 crypto.go 一致）----------
+async function deriveKey(pw, id) {
+  const base = await crypto.subtle.importKey("raw", enc.encode(pw), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", salt: enc.encode("rdesk:" + id), iterations: 150000, hash: "SHA-256" },
+    base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+const AAD_V2H = enc.encode("v2h"), AAD_H2V = enc.encode("h2v");
+
+let ws = null, key = null, sendChain = Promise.resolve(), recvChain = Promise.resolve();
+let connected = false, frameW = 0, frameH = 0, hostInfo = null;
+
+function sendMsg(bytes) {
+  if (!ws || ws.readyState !== 1 || !key) return;
+  // 保证顺序：加密是异步的，串成一条链
+  sendChain = sendChain.then(async () => {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: AAD_V2H }, key, bytes));
+    const out = new Uint8Array(13 + ct.length);
+    out[0] = 1; out.set(iv, 1); out.set(ct, 13);
+    if (ws && ws.readyState === 1) ws.send(out);
+  }).catch(() => {});
+}
+function msg(type, ...parts) {
+  let n = 1; for (const p of parts) n += p.length;
+  const b = new Uint8Array(n); b[0] = type; let o = 1;
+  for (const p of parts) { b.set(p, o); o += p.length; }
+  return b;
+}
+const u16 = (...v) => { const b = new Uint8Array(v.length * 2), d = new DataView(b.buffer); v.forEach((x, i) => d.setUint16(i * 2, x & 0xffff)); return b; };
+const u8 = (...v) => Uint8Array.from(v);
+
+// ---------- 登录 ----------
+const idIn = $("id"), pwIn = $("pw");
+idIn.value = (location.hash.slice(1).match(/^[\w-]{6,32}$/) || [store.get("rdesk.id") || ""])[0];
+if (idIn.value) pwIn.focus(); else idIn.focus();
+$("quality").value = store.get("rdesk.q") || "mid";
+
+function setMsg(t, err) { $("msg").textContent = t; $("msg").className = err ? "err" : ""; }
+
+$("form").onsubmit = async (e) => {
+  e.preventDefault();
+  const id = idIn.value.trim().replace(/\s+/g, ""), pw = pwIn.value;
+  if (!id || !pw) return setMsg("请填写设备 ID 和密码", true);
+  if (!window.isSecureContext || !crypto.subtle) return setMsg("请用 https:// 地址打开本页面（浏览器只在 https 下允许加密）", true);
+  $("go").disabled = true; setMsg("正在连接…");
+  try { key = await deriveKey(pw, id); } catch (err) { $("go").disabled = false; return setMsg("加密初始化失败: " + err, true); }
+  store.set("rdesk.id", id);
+  connect(id);
+};
+
+function connect(id) {
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  ws = new WebSocket(`${proto}//${location.host}/ws/view?id=${encodeURIComponent(id)}`);
+  ws.binaryType = "arraybuffer";
+  let errShown = false;
+  ws.onmessage = (ev) => {
+    if (typeof ev.data === "string") {
+      const m = JSON.parse(ev.data);
+      if (m.t === "paired") { setMsg("正在验证密码…"); sendMsg(msg(M.HELLO, enc.encode(JSON.stringify(PRESETS[$("quality").value])))); }
+      if (m.t === "err") { errShown = true; fail(m.m); }
+      return;
+    }
+    const data = new Uint8Array(ev.data);
+    if (data[0] === 0) { errShown = true; fail(dec.decode(data.subarray(1))); return; }
+    recvChain = recvChain.then(() => handleEncrypted(data)).catch((e) => console.warn(e));
+  };
+  ws.onclose = () => {
+    if (connected) { endSession(); setMsg("连接已断开", true); }
+    else if (!errShown) fail("无法连接到中继服务器");
+    ws = null;
+  };
+}
+
+function fail(t) {
+  setMsg(t, true); $("go").disabled = false;
+  if (connected) endSession();
+  if (ws) { try { ws.close(); } catch {} }
+}
+
+async function handleEncrypted(data) {
+  if (data.length < 29 || data[0] !== 1) return;
+  let plain;
+  try {
+    plain = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: data.subarray(1, 13), additionalData: AAD_H2V }, key, data.subarray(13)));
+  } catch { return; }
+  switch (plain[0]) {
+    case M.HELLO_OK: hostInfo = JSON.parse(dec.decode(plain.subarray(1))); startSession(); break;
+    case M.FRAME: await drawFrame(plain); break;
+    case M.PONG: { const t = new DataView(plain.buffer, plain.byteOffset + 1).getFloat64(0); rtt = performance.now() - t; break; }
+    case M.INFO: notice(dec.decode(plain.subarray(1)), 6000); break;
+  }
+}
+
+// ---------- 会话 ----------
+const canvas = $("screen"), ctx = canvas.getContext("2d", { alpha: false }), stage = $("session");
+let pingTimer = 0, rtt = 0, frames = 0, bytes = 0, statT = performance.now();
+const isTouch = matchMedia("(pointer: coarse)").matches;
+
+function startSession() {
+  connected = true;
+  $("login").style.display = "none"; stage.style.display = "block"; $("wait").style.display = "flex";
+  $("go").disabled = false; setMsg("");
+  document.title = (hostInfo.name || "远程") + " - rdesk";
+  if (hostInfo.displays > 1) {
+    const sel = $("display"); sel.innerHTML = ""; sel.style.display = "";
+    for (let i = 0; i < hostInfo.displays; i++) sel.add(new Option("显示器 " + (i + 1), i));
+  }
+  $("touchMode").style.display = isTouch ? "" : "none";
+  $("kbBtn").style.display = isTouch ? "" : "none";
+  if (isTouch) $("bar").classList.add("min");
+  if (!hostInfo.input) notice("被控端没有「辅助功能」权限，目前只能看不能控", 8000);
+  buildKeys();
+  canvas.focus();
+  pingTimer = setInterval(() => {
+    const b = new Uint8Array(8); new DataView(b.buffer).setFloat64(0, performance.now());
+    sendMsg(msg(M.PING, b));
+    const now = performance.now(), dt = (now - statT) / 1000;
+    $("stats").textContent = `${Math.round(frames / dt)} fps · ${Math.round(rtt)} ms · ${Math.round(bytes * 8 / dt / 1000)} kbps`;
+    frames = 0; bytes = 0; statT = now;
+  }, 1000);
+}
+
+function endSession() {
+  connected = false; clearInterval(pingTimer); releaseKeys();
+  stage.style.display = "none"; $("login").style.display = "flex";
+  document.title = "rdesk 远程桌面"; frameW = frameH = 0; zoom = 1; panX = panY = 0;
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+
+$("quit").onclick = () => { if (ws) ws.close(); endSession(); setMsg("已断开"); };
+
+async function drawFrame(p) {
+  const d = new DataView(p.buffer, p.byteOffset, p.byteLength);
+  const W = d.getUint16(5), H = d.getUint16(7), n = p[9];
+  let o = 10; const rects = [];
+  for (let i = 0; i < n; i++) {
+    const x = d.getUint16(o), y = d.getUint16(o + 2), len = d.getUint32(o + 8);
+    rects.push({ x, y, img: createImageBitmap(new Blob([p.subarray(o + 12, o + 12 + len)], { type: "image/jpeg" })) });
+    o += 12 + len;
+  }
+  bytes += p.length;
+  if (W !== frameW || H !== frameH) { frameW = canvas.width = W; frameH = canvas.height = H; layout(); }
+  for (const r of rects) { try { const bm = await r.img; ctx.drawImage(bm, r.x, r.y); bm.close(); } catch {} }
+  frames++;
+  $("wait").style.display = "none";
+  sendMsg(u8(M.ACK));
+}
+
+// ---------- 缩放与布局 ----------
+let zoom = 1, panX = 0, panY = 0;
+function baseScale() { return Math.min(stage.clientWidth / frameW, stage.clientHeight / frameH); }
+function layout() {
+  if (!frameW) return;
+  const s = baseScale() * zoom, w = frameW * s, h = frameH * s, sw = stage.clientWidth, sh = stage.clientHeight;
+  // 画面比屏幕小时居中，大时限制不拖出边界
+  panX = w <= sw ? (sw - w) / 2 : Math.min(0, Math.max(sw - w, panX));
+  panY = h <= sh ? (sh - h) / 2 : Math.min(0, Math.max(sh - h, panY));
+  Object.assign(canvas.style, { width: w + "px", height: h + "px", left: panX + "px", top: panY + "px" });
+  $("fitBtn").textContent = zoom === 1 ? "适应" : Math.round(zoom * 100) + "%";
+}
+addEventListener("resize", layout);
+$("fitBtn").onclick = () => {
+  // 在 适应 / 原始像素(1:1) 之间切换
+  const one = 1 / baseScale();
+  zoom = zoom === 1 && one > 1.05 ? one : 1;
+  layout();
+};
+$("fsBtn").onclick = () => {
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  else (stage.requestFullscreen ? stage.requestFullscreen() : Promise.reject()).catch(() => notice("此浏览器不支持全屏", 2000));
+};
+$("toggleBar").onclick = () => $("bar").classList.toggle("min");
+$("quality").onchange = (e) => { store.set("rdesk.q", e.target.value); sendSettings(); };
+$("display").onchange = () => sendSettings();
+function sendSettings() {
+  const s = { ...PRESETS[$("quality").value], display: +$("display").value || 0 };
+  sendMsg(msg(M.SETTINGS, enc.encode(JSON.stringify(s))));
+}
+
+let noticeT = 0;
+function notice(t, ms) { const n = $("notice"); n.textContent = t; n.style.display = "block"; clearTimeout(noticeT); noticeT = setTimeout(() => n.style.display = "none", ms || 2500); }
+
+// ---------- 鼠标 ----------
+function norm(cx, cy) {
+  const r = canvas.getBoundingClientRect();
+  const x = Math.min(1, Math.max(0, (cx - r.left) / r.width)), y = Math.min(1, Math.max(0, (cy - r.top) / r.height));
+  return [Math.round(x * 65535), Math.round(y * 65535)];
+}
+let pendingMove = null, pendingWheel = [0, 0], rafOn = false;
+function flush() {
+  rafOn = false;
+  if (pendingMove) { sendMsg(msg(M.MOVE, u16(...pendingMove))); pendingMove = null; }
+  if (pendingWheel[0] || pendingWheel[1]) {
+    const c = (v) => Math.max(-32000, Math.min(32000, Math.round(v)));
+    sendMsg(msg(M.WHEEL, u16(c(pendingWheel[0]), c(pendingWheel[1])))); pendingWheel = [0, 0];
+  }
+}
+function schedule() { if (!rafOn) { rafOn = true; requestAnimationFrame(flush); } }
+function move(cx, cy) { pendingMove = norm(cx, cy); schedule(); }
+function button(b, down, cx, cy) { flush(); const [x, y] = norm(cx, cy); sendMsg(msg(M.BUTTON, u8(b, down ? 1 : 0), u16(x, y))); }
+
+canvas.addEventListener("mousemove", (e) => { if (connected) move(e.clientX, e.clientY); });
+canvas.addEventListener("mousedown", (e) => { if (!connected) return; e.preventDefault(); canvas.focus(); button(e.button, true, e.clientX, e.clientY); });
+addEventListener("mouseup", (e) => { if (connected && e.target === canvas) button(e.button, false, e.clientX, e.clientY); });
+canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+canvas.addEventListener("wheel", (e) => {
+  if (!connected) return; e.preventDefault();
+  const k = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? frameH : 1;
+  pendingWheel[0] += e.deltaX * k; pendingWheel[1] += e.deltaY * k; schedule();
+}, { passive: false });
+
+// ---------- 键盘 ----------
+const pressed = new Set();
+// KEY 消息格式: [0x20][down][code...]
+function sendKey(code, down) {
+  if (down) pressed.add(code); else pressed.delete(code);
+  sendMsg(msg(M.KEY, u8(down ? 1 : 0), enc.encode(code)));
+}
+function releaseKeys() { for (const c of [...pressed]) sendKey(c, false); }
+
+addEventListener("keydown", (e) => {
+  if (!connected || document.activeElement === $("ime") || e.target.tagName === "SELECT") return;
+  if (!e.code || e.code === "Unidentified") return;
+  e.preventDefault();
+  sendKey(e.code, true);
+});
+addEventListener("keyup", (e) => {
+  if (!connected || document.activeElement === $("ime") || !e.code) return;
+  e.preventDefault();
+  sendKey(e.code, false);
+  // Mac 浏览器按住 ⌘ 时其他键收不到 keyup，⌘ 松开时一并松开
+  if (e.code.startsWith("Meta") || e.code.startsWith("OS")) for (const c of [...pressed]) if (!c.startsWith("Meta") && !c.startsWith("OS")) sendKey(c, false);
+});
+addEventListener("blur", () => { if (connected) releaseKeys(); });
+
+// ---------- 手机输入法 ----------
+const ime = $("ime");
+$("kbBtn").onclick = () => { ime.value = ""; ime.focus(); };
+let composing = false;
+ime.addEventListener("compositionstart", () => composing = true);
+ime.addEventListener("compositionend", (e) => { composing = false; if (e.data) sendMsg(msg(M.TEXT, enc.encode(e.data))); ime.value = ""; });
+ime.addEventListener("beforeinput", (e) => {
+  if (composing || e.isComposing) return;
+  if (e.inputType === "insertText" && e.data) { sendMsg(msg(M.TEXT, enc.encode(e.data))); e.preventDefault(); }
+  else if (e.inputType === "insertLineBreak" || e.inputType === "insertParagraph") { tapKey("Enter"); e.preventDefault(); }
+  else if (e.inputType === "deleteContentBackward") { tapKey("Backspace"); e.preventDefault(); }
+});
+ime.addEventListener("input", () => { if (!composing) ime.value = ""; });
+ime.addEventListener("keydown", (e) => {
+  // 外接键盘在输入框里时，方向键等非字符键直接转发
+  const pass = ["Escape", "Tab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Delete", "Home", "End", "PageUp", "PageDown"];
+  if (pass.includes(e.key)) { e.preventDefault(); tapKey(e.code || e.key); }
+});
+function tapKey(code) { sendKey(code, true); sendKey(code, false); }
+
+// ---------- 特殊键面板 ----------
+const mods = { ControlLeft: "Ctrl", AltLeft: "Alt/⌥", ShiftLeft: "Shift", MetaLeft: "Win/⌘" };
+const sticky = new Set();
+function buildKeys() {
+  const box = $("keys"); box.innerHTML = "";
+  const add = (label, fn, cls) => { const b = document.createElement("button"); b.className = "tb" + (cls ? " " + cls : ""); b.textContent = label; b.onclick = fn; box.appendChild(b); return b; };
+  for (const [code, label] of Object.entries(mods)) {
+    const b = add(label, () => {
+      if (sticky.has(code)) { sticky.delete(code); sendKey(code, false); b.classList.remove("on"); }
+      else { sticky.add(code); sendKey(code, true); b.classList.add("on"); }
+    });
+  }
+  const combo = (codes) => () => {
+    for (const c of codes) sendKey(c, true);
+    for (const c of [...codes].reverse()) sendKey(c, false);
+    for (const c of [...sticky]) { sendKey(c, false); sticky.delete(c); }
+    box.querySelectorAll(".on").forEach((b) => b.classList.remove("on"));
+  };
+  for (const k of ["Escape", "Tab", "Enter", "Backspace", "Delete", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown", "F5"])
+    add({ Escape: "Esc", Backspace: "退格", Delete: "Del", ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→" }[k] || k, combo([k]));
+  const mac = hostInfo && hostInfo.os === "darwin";
+  const C = mac ? "MetaLeft" : "ControlLeft";
+  add("复制", combo([C, "KeyC"])); add("粘贴", combo([C, "KeyV"])); add("全选", combo([C, "KeyA"])); add("撤销", combo([C, "KeyZ"]));
+  add(mac ? "切换应用 ⌘Tab" : "切换窗口 Alt+Tab", combo([mac ? "MetaLeft" : "AltLeft", "Tab"]));
+  if (mac) { add("聚焦搜索 ⌘空格", combo(["MetaLeft", "Space"])); add("调度中心", combo(["ControlLeft", "ArrowUp"])); }
+  else { add("任务管理器", combo(["ControlLeft", "ShiftLeft", "Escape"])); add("开始菜单", combo(["MetaLeft"])); add("显示桌面 Win+D", combo(["MetaLeft", "KeyD"])); }
+}
+$("keysBtn").onclick = () => $("keys").classList.toggle("show");
+
+// ---------- 触屏手势 ----------
+// 单指点按=左键  长按=右键  单指拖动=滚动或拖拽（工具栏切换）  双指=本地缩放/平移画面
+let tMode = store.get("rdesk.touch") || "scroll";
+const tmBtn = $("touchMode");
+const tmLabel = () => tmBtn.textContent = "单指: " + (tMode === "scroll" ? "滚动" : "拖拽");
+tmLabel();
+tmBtn.onclick = () => { tMode = tMode === "scroll" ? "drag" : "scroll"; store.set("rdesk.touch", tMode); tmLabel(); };
+
+let t1 = null, pinch = null, lpTimer = 0;
+const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+stage.addEventListener("touchstart", (e) => {
+  if (!connected || e.target.closest("#bar,#keys")) return;
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    t1 = { x: t.clientX, y: t.clientY, lx: t.clientX, ly: t.clientY, moved: false, long: false, drag: false };
+    clearTimeout(lpTimer);
+    lpTimer = setTimeout(() => { if (t1 && !t1.moved) { t1.long = true; move(t1.x, t1.y); button(2, true, t1.x, t1.y); button(2, false, t1.x, t1.y); navigator.vibrate && navigator.vibrate(20); } }, 550);
+  } else if (e.touches.length === 2) {
+    clearTimeout(lpTimer);
+    if (t1 && t1.drag) button(0, false, t1.lx, t1.ly);
+    t1 = null;
+    const [a, b] = e.touches, mx = (a.clientX + b.clientX) / 2, my = (a.clientY + b.clientY) / 2;
+    const s = baseScale() * zoom;
+    pinch = { d: dist(a, b), z: zoom, px: (mx - panX) / s, py: (my - panY) / s };
+  }
+}, { passive: false });
+stage.addEventListener("touchmove", (e) => {
+  if (!connected || e.target.closest("#bar,#keys")) return;
+  e.preventDefault();
+  if (pinch && e.touches.length >= 2) {
+    const [a, b] = e.touches, mx = (a.clientX + b.clientX) / 2, my = (a.clientY + b.clientY) / 2;
+    zoom = Math.min(6, Math.max(1, pinch.z * dist(a, b) / pinch.d));
+    const s = baseScale() * zoom;
+    panX = mx - pinch.px * s; panY = my - pinch.py * s;
+    layout();
+    return;
+  }
+  if (!t1 || e.touches.length !== 1) return;
+  const t = e.touches[0];
+  if (!t1.moved && Math.hypot(t.clientX - t1.x, t.clientY - t1.y) > 10) { t1.moved = true; clearTimeout(lpTimer); }
+  if (!t1.moved || t1.long) return;
+  if (tMode === "drag") {
+    if (!t1.drag) { t1.drag = true; move(t1.x, t1.y); button(0, true, t1.x, t1.y); }
+    move(t.clientX, t.clientY);
+  } else {
+    // 远程像素 / 屏幕像素，手指往上推 = 内容往下滚
+    const k = 1 / (baseScale() * zoom);
+    pendingWheel[0] -= (t.clientX - t1.lx) * k * 1.5; pendingWheel[1] -= (t.clientY - t1.ly) * k * 1.5;
+    if (!pendingMove) move(t1.x, t1.y);
+    schedule();
+  }
+  t1.lx = t.clientX; t1.ly = t.clientY;
+}, { passive: false });
+stage.addEventListener("touchend", (e) => {
+  if (!connected || e.target.closest("#bar,#keys")) return;
+  e.preventDefault();
+  if (e.touches.length === 0) pinch = null;
+  if (!t1) return;
+  clearTimeout(lpTimer);
+  if (t1.drag) button(0, false, t1.lx, t1.ly);
+  else if (!t1.moved && !t1.long) { move(t1.x, t1.y); button(0, true, t1.x, t1.y); button(0, false, t1.x, t1.y); }
+  t1 = null;
+}, { passive: false });
+stage.addEventListener("touchcancel", () => { clearTimeout(lpTimer); if (t1 && t1.drag) button(0, false, t1.lx, t1.ly); t1 = null; pinch = null; });
+</script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+package main
+
+import (
+	"encoding/json"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+)
+
+// 本机控制面板（http://127.0.0.1:21131）：显示远程地址 / ID / 密码、权限状态，可换密码、退出。
+// 只监听 127.0.0.1；另外校验 Host 头（防 DNS 重绑定）和自定义请求头（防其他网站跨站调用）。
+
+type panelState struct {
+	Addr string `json:"addr"`
+	Mode string `json:"mode"` // tailscale / cloudflare / relay / local
+}
+
+var panel panelState
+
+func localOnly(r *http.Request) bool {
+	h := r.Host
+	return strings.HasPrefix(h, "127.0.0.1:") || strings.HasPrefix(h, "localhost:")
+}
+
+func registerPanel(mux *http.ServeMux) {
+	mux.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("rdesk")) })
+	mux.HandleFunc("/api/info", func(w http.ResponseWriter, r *http.Request) {
+		if !localOnly(r) || r.Header.Get("X-RDesk") != "1" {
+			http.Error(w, "forbidden", 403)
+			return
+		}
+		cfg := loadConfig()
+		screen, access := permStatus()
+		_, appErr := os.Stat("/Applications/Tailscale.app")
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		json.NewEncoder(w).Encode(map[string]any{
+			"addr": panel.Addr, "mode": panel.Mode, "id": cfg.ID, "password": cfg.Password,
+			"version": version, "screen": screen, "access": access,
+			"tsIP": tailscaleIP(), "tsInstalled": appErr == nil || tailscaleBin() != "",
+		})
+	})
+	mux.HandleFunc("/api/newpw", func(w http.ResponseWriter, r *http.Request) {
+		if !localOnly(r) || r.Method != "POST" || r.Header.Get("X-RDesk") != "1" {
+			http.Error(w, "forbidden", 403)
+			return
+		}
+		h := curHost.Load()
+		if h == nil {
+			http.Error(w, "not ready", 503)
+			return
+		}
+		cfg := loadConfig()
+		cfg.Password = randPassword(8)
+		if err := h.setPassword(cfg.Password); err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		saveConfig(cfg)
+		w.Write([]byte("ok"))
+	})
+	mux.HandleFunc("/api/quit", func(w http.ResponseWriter, r *http.Request) {
+		if !localOnly(r) || r.Method != "POST" || r.Header.Get("X-RDesk") != "1" {
+			http.Error(w, "forbidden", 403)
+			return
+		}
+		w.Write([]byte("bye"))
+		go func() { time.Sleep(300 * time.Millisecond); os.Exit(0) }()
+	})
+}
