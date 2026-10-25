@@ -8,6 +8,7 @@ package main
 #include <ApplicationServices/ApplicationServices.h>
 #import <AppKit/AppKit.h>
 #include <stdlib.h>
+#include <math.h>
 
 static int axTrusted(int prompt) {
 	const void *keys[] = { kAXTrustedCheckOptionPrompt };
@@ -25,21 +26,34 @@ static int screenAccess(int request) {
 	return 0;
 }
 
-static void postMouse(int type, double x, double y, int button, int clicks) {
-	CGEventRef e = CGEventCreateMouseEvent(NULL, (CGEventType)type, CGPointMake(x, y), (CGMouseButton)button);
+// 事件源用「硬件状态」，模拟的事件更像真实鼠标键盘（有的程序会区分）
+static CGEventSourceRef gSrc = NULL;
+static CGEventSourceRef src(void) {
+	if (!gSrc) gSrc = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+	return gSrc;
+}
+
+// dx/dy：和上一次位置的差。VMware、Parallels 等虚拟机按位移量移动虚拟机里的光标，
+// 不带位移的话虚拟机里光标不动、点击落不到想点的地方
+static void postMouse(int type, double x, double y, int button, int clicks, double dx, double dy) {
+	CGEventRef e = CGEventCreateMouseEvent(src(), (CGEventType)type, CGPointMake(x, y), (CGMouseButton)button);
 	if (clicks > 0) CGEventSetIntegerValueField(e, kCGMouseEventClickState, clicks);
+	CGEventSetIntegerValueField(e, kCGMouseEventDeltaX, (int64_t)lround(dx));
+	CGEventSetIntegerValueField(e, kCGMouseEventDeltaY, (int64_t)lround(dy));
+	CGEventSetDoubleValueField(e, kCGMouseEventDeltaX, dx);
+	CGEventSetDoubleValueField(e, kCGMouseEventDeltaY, dy);
 	CGEventPost(kCGHIDEventTap, e);
 	CFRelease(e);
 }
 
 static void postScroll(int dy, int dx) {
-	CGEventRef e = CGEventCreateScrollWheelEvent2(NULL, kCGScrollEventUnitPixel, 2, dy, dx, 0);
+	CGEventRef e = CGEventCreateScrollWheelEvent2(src(), kCGScrollEventUnitPixel, 2, dy, dx, 0);
 	CGEventPost(kCGHIDEventTap, e);
 	CFRelease(e);
 }
 
 static void postKey(int code, int down, unsigned long long flags) {
-	CGEventRef e = CGEventCreateKeyboardEvent(NULL, (CGKeyCode)code, down ? true : false);
+	CGEventRef e = CGEventCreateKeyboardEvent(src(), (CGKeyCode)code, down ? true : false);
 	CGEventSetFlags(e, (CGEventFlags)flags);
 	CGEventPost(kCGHIDEventTap, e);
 	CFRelease(e);
@@ -77,8 +91,8 @@ static int cursorShape(uint8_t **out, double *w, double *h, double *hx, double *
 }
 
 static void postUnicode(const UniChar *s, int n) {
-	CGEventRef d = CGEventCreateKeyboardEvent(NULL, 0, true);
-	CGEventRef u = CGEventCreateKeyboardEvent(NULL, 0, false);
+	CGEventRef d = CGEventCreateKeyboardEvent(src(), 0, true);
+	CGEventRef u = CGEventCreateKeyboardEvent(src(), 0, false);
 	CGEventSetFlags(d, 0);
 	CGEventSetFlags(u, 0);
 	CGEventKeyboardSetUnicodeString(d, n, s);
@@ -112,6 +126,35 @@ var in struct {
 	lastY     float64
 	clicks    int
 	trustedOK bool
+	px, py    float64 // 上一次发出去的光标位置（算位移量用）
+	posted    bool
+}
+
+// 当前按着的键决定移动事件的类型（普通移动 / 拖拽）
+func moveType() (t, b int) {
+	switch {
+	case in.buttons[0]:
+		return evLeftDrag, 0
+	case in.buttons[2]:
+		return evRightDrag, 1
+	case in.buttons[1]:
+		return evOtherDrag, 2
+	}
+	return evMoved, 0
+}
+
+// 发鼠标事件并带上相对上一次位置的位移量（调用方持有 in 锁）
+func post(t int, x, y float64, b, clicks int) {
+	if !in.posted {
+		in.px, in.py, _ = cursorPos()
+		in.posted = true
+	}
+	dx, dy := x-in.px, y-in.py
+	if t != evMoved && t != evLeftDrag && t != evRightDrag && t != evOtherDrag {
+		dx, dy = 0, 0
+	}
+	in.px, in.py = x, y
+	C.postMouse(C.int(t), C.double(x), C.double(y), C.int(b), C.int(clicks), C.double(dx), C.double(dy))
 }
 
 func inputInit() error {
@@ -184,16 +227,8 @@ func mouseMove(x, y float64) {
 	in.Lock()
 	defer in.Unlock()
 	in.x, in.y = x, y
-	t, b := evMoved, 0
-	switch {
-	case in.buttons[0]:
-		t = evLeftDrag
-	case in.buttons[2]:
-		t, b = evRightDrag, 1
-	case in.buttons[1]:
-		t, b = evOtherDrag, 2
-	}
-	C.postMouse(C.int(t), C.double(x), C.double(y), C.int(b), 0)
+	t, b := moveType()
+	post(t, x, y, b, 0)
 }
 
 func mouseButton(btn int, down bool, x, y float64) {
@@ -213,6 +248,11 @@ func mouseButton(btn int, down bool, x, y float64) {
 		}
 		in.lastDown, in.lastBtn, in.lastX, in.lastY = time.Now(), btn, x, y
 	}
+	// 按下前光标不在这里：先带位移移过去（虚拟机才知道光标到了哪）
+	if in.posted && (x != in.px || y != in.py) {
+		t, b := moveType()
+		post(t, x, y, b, 0)
+	}
 	in.buttons[btn] = down
 	var t int
 	switch btn {
@@ -223,7 +263,7 @@ func mouseButton(btn int, down bool, x, y float64) {
 	default:
 		t = map[bool]int{true: evOtherDown, false: evOtherUp}[down]
 	}
-	C.postMouse(C.int(t), C.double(x), C.double(y), C.int(cgButton(btn)), C.int(max(in.clicks, 1)))
+	post(t, x, y, cgButton(btn), max(in.clicks, 1))
 }
 
 func mouseWheel(dx, dy int) {
