@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const version = "0.1.4"
+const version = "0.2.0"
 
 func usage() {
 	fmt.Print(`rdesk ` + version + ` —— 走隧道的远程桌面（类 RustDesk）
@@ -45,6 +45,9 @@ func usage() {
 
 func main() {
 	log.SetFlags(log.Ltime)
+	if os.Getenv("RDESK_BENCH") == "1" {
+		benchAndExit()
+	}
 	if os.Getenv("RDESK_APP") == "1" {
 		appMode()
 	}

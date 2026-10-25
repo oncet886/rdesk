@@ -84,9 +84,8 @@ func init() {
 	}
 }
 
-func inputInit() error                    { win.keys = map[string]bool{}; return nil }
-func inputAvailable() bool                { return true }
-func cursorPos() (float64, float64, bool) { return 0, 0, false }
+func inputInit() error     { win.keys = map[string]bool{}; return nil }
+func inputAvailable() bool { return true }
 
 func metric(i int) int32 { r, _, _ := procGetMetrics.Call(uintptr(i)); return int32(r) }
 
@@ -248,8 +247,5 @@ func itoa(i int) string {
 	}
 	return string(rune('0'+i/10)) + string(rune('0'+i%10))
 }
-
-func cursorShape() ([]byte, float64, float64, float64, float64, bool) { return nil, 0, 0, 0, 0, false }
-func cursorShapeReset()                                               {}
 
 func permStatus() (bool, bool) { return true, true }
