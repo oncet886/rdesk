@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const version = "0.2.0"
+const version = "0.2.1"
 
 func usage() {
 	fmt.Print(`rdesk ` + version + ` —— 走隧道的远程桌面（类 RustDesk）
@@ -151,7 +151,7 @@ func startHostCmd(cfg config, o hostOpts, relayURL string, forceTunnel, noTunnel
 			// 没有 Tailscale 也没装 cloudflared：等 Tailscale 打开（控制面板会提示下载/打开），打开后自动直连
 			if tailscaleIP() == "" && !forceTunnel && !noTunnel && findCloudflared() == "" {
 				panel = panelState{Addr: "等待 Tailscale 连接…", Mode: "waiting"}
-				log.Printf("没检测到 Tailscale，请安装并登录 Tailscale：https://tailscale.com/download （打开后会自动继续）")
+				log.Print(L("没检测到 Tailscale，请安装并登录 Tailscale：https://tailscale.com/download （打开后会自动继续）"))
 				for tailscaleIP() == "" {
 					time.Sleep(3 * time.Second)
 				}
@@ -164,7 +164,7 @@ func startHostCmd(cfg config, o hostOpts, relayURL string, forceTunnel, noTunnel
 				}
 				// 端口已被别的程序（比如 RustDesk）占着就顺延，绝不抢别人的连接
 				for i := 0; i < 20 && portBusy(ts, pt); i++ {
-					log.Printf("端口 %d 已被其他程序使用，换下一个", pt)
+					log.Printf(L("端口 %d 已被其他程序使用，换下一个"), pt)
 					pt++
 				}
 				addr := net.JoinHostPort(ts, fmt.Sprint(pt))
@@ -175,7 +175,7 @@ func startHostCmd(cfg config, o hostOpts, relayURL string, forceTunnel, noTunnel
 				srv := &http.Server{Handler: newRelay("").handler(), ReadHeaderTimeout: 10 * time.Second}
 				go srv.Serve(ln)
 				o.relayURL = "ws://" + addr + "/ws/host"
-				log.Printf("Tailscale 直连模式（不经过任何中转服务器）")
+				log.Print(L("Tailscale 直连模式（不经过任何中转服务器）"))
 				panel = panelState{Addr: addr, Mode: "tailscale"}
 				banner(cfg, addr)
 				runHost(o)
@@ -195,7 +195,7 @@ func startHostCmd(cfg config, o hostOpts, relayURL string, forceTunnel, noTunnel
 				panel = panelState{Addr: local, Mode: "local"}
 				banner(cfg, local)
 			} else {
-				log.Printf("正在打开 Cloudflare 隧道…（本机测试地址 %s）", local)
+				log.Printf(L("正在打开 Cloudflare 隧道…（本机测试地址 %s）"), local)
 				panel = panelState{Addr: "正在打开 Cloudflare 隧道…", Mode: "cloudflare"}
 				go runTunnel(p, func(u string) { panel.Addr = u; banner(cfg, u) })
 			}
@@ -207,7 +207,8 @@ func startHostCmd(cfg config, o hostOpts, relayURL string, forceTunnel, noTunnel
 var diagURL string
 
 func banner(cfg config, u string) {
-	fmt.Printf(`
+	if langCol < 0 {
+		fmt.Printf(`
 ╔══════════════════════════════════════════════════╗
   远程地址:  %s
   设备 ID :  %s
@@ -216,6 +217,10 @@ func banner(cfg config, u string) {
 ╚══════════════════════════════════════════════════╝
 
 `, u, cfg.ID, cfg.Password, diagURL)
+		return
+	}
+	fmt.Printf("\n══════════════════════════════════════════════════\n  %s:  %s\n  %s:  %s\n  %s:  %s\n  %s:  %s %s\n══════════════════════════════════════════════════\n\n",
+		L("远程地址"), u, L("设备 ID"), cfg.ID, L("密码"), cfg.Password, L("控制面板"), diagURL, L("（只能在这台电脑上打开）"))
 }
 
 func httpURL(s string) string {
@@ -307,14 +312,14 @@ func findCloudflared() string {
 func runTunnel(port int, onURL func(string)) {
 	bin := findCloudflared()
 	if bin == "" {
-		log.Printf("❌ 没找到 cloudflared。Mac 运行: brew install cloudflared ；Windows 把 cloudflared.exe 放到本程序同一目录")
+		log.Print(L("❌ 没找到 cloudflared。Mac 运行: brew install cloudflared ；Windows 把 cloudflared.exe 放到本程序同一目录"))
 		return
 	}
 	for {
 		cmd := exec.Command(bin, "tunnel", "--no-autoupdate", "--url", fmt.Sprintf("http://127.0.0.1:%d", port))
 		stderr, _ := cmd.StderrPipe()
 		if err := cmd.Start(); err != nil {
-			log.Printf("启动 cloudflared 失败: %v", err)
+			log.Printf(L("启动 cloudflared 失败: %v"), err)
 			return
 		}
 		sc := bufio.NewScanner(stderr)
@@ -328,7 +333,7 @@ func runTunnel(port int, onURL func(string)) {
 			}
 		}
 		cmd.Wait()
-		log.Printf("隧道断开，5 秒后重开…")
+		log.Print(L("隧道断开，5 秒后重开…"))
 		time.Sleep(5 * time.Second)
 	}
 }

@@ -126,7 +126,7 @@ func (r *relay) serveHost(w http.ResponseWriter, req *http.Request) {
 	he := &hostEntry{conn: hc}
 	r.hosts[id] = he
 	r.mu.Unlock()
-	log.Printf("[relay] 被控端上线 id=%s from=%s", id, clientIP(req))
+	log.Printf(L("[relay] 被控端上线 id=%s from=%s"), id, clientIP(req))
 
 	stop := make(chan struct{})
 	go keepAlive(hc, stop)
@@ -143,7 +143,7 @@ func (r *relay) serveHost(w http.ResponseWriter, req *http.Request) {
 		}
 		r.mu.Unlock()
 		c.Close()
-		log.Printf("[relay] 被控端下线 id=%s", id)
+		log.Printf(L("[relay] 被控端下线 id=%s"), id)
 	}()
 	for {
 		mt, data, err := c.ReadMessage()
@@ -205,7 +205,7 @@ func (r *relay) serveView(w http.ResponseWriter, req *http.Request) {
 	he.viewer = vc
 	he.viewerIP = ip
 	r.mu.Unlock()
-	log.Printf("[relay] 控制端接入 id=%s from=%s", id, ip)
+	log.Printf(L("[relay] 控制端接入 id=%s from=%s"), id, ip)
 
 	he.conn.writeJSON(map[string]string{"t": "open", "ip": ip})
 	vc.writeJSON(map[string]string{"t": "paired"})
@@ -224,7 +224,7 @@ func (r *relay) serveView(w http.ResponseWriter, req *http.Request) {
 		if current { // 被新连接顶掉的旧连接不通知被控端，免得把新会话也关了
 			he.conn.writeJSON(map[string]string{"t": "close"})
 		}
-		log.Printf("[relay] 控制端断开 id=%s", id)
+		log.Printf(L("[relay] 控制端断开 id=%s"), id)
 	}()
 	for {
 		mt, data, err := c.ReadMessage()

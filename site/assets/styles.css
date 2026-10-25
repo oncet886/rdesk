@@ -232,6 +232,7 @@ p{margin:0}
 .app-hero-media{display:flex;justify-content:center}
 .app-hero-media.phone .device-phone{max-width:320px}
 .app-facts{margin:0}
+@media (min-width:981px){.app-facts > div:nth-child(3n){border-right:0}.app-facts > div:nth-child(n+4){border-top:1px solid var(--line)}.app-facts > div:nth-child(5):last-child{grid-column:span 2}}
 @media (prefers-reduced-motion:reduce){.app-card,.app-card:hover{transition:none;transform:none}}
 
 /* download buttons (App Store placeholder until a link exists) */

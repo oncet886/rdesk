@@ -63,21 +63,21 @@
 <body>
 <main>
   <header>
-    <h1>RDesk 被控端</h1>
-    <span class="pill" id="state">等待连接</span>
+    <h1 data-t="title">RDesk 被控端</h1>
+    <span class="pill" id="state" data-t="waiting">等待连接</span>
     <span class="muted" id="sub"></span>
   </header>
 
   <section class="card conn">
     <div class="conn-grid">
-      <div><div class="k">远程地址（填到 iPhone「RDesk 远控」里）</div><div class="big mono" id="addr">–</div></div>
-      <div><div class="k">设备 ID</div><div class="big mono" id="cid">–</div></div>
-      <div><div class="k">密码</div><div class="big mono"><span id="pw">••••••••</span><button class="btn small" id="showpw">显示</button></div></div>
+      <div><div class="k" data-t="addrLabel">远程地址（填到控制端 RDesk 里）</div><div class="big mono" id="addr">–</div></div>
+      <div><div class="k" data-t="id">设备 ID</div><div class="big mono" id="cid">–</div></div>
+      <div><div class="k" data-t="pw">密码</div><div class="big mono"><span id="pw">••••••••</span><button class="btn small" id="showpw" data-t="show">显示</button></div></div>
     </div>
     <div class="row">
-      <button class="btn primary" id="copy">复制地址 / ID / 密码</button>
-      <button class="btn" id="newpw">换新密码</button>
-      <button class="btn danger" id="quit">退出被控端</button>
+      <button class="btn primary" id="copy" data-t="copy">复制地址 / ID / 密码</button>
+      <button class="btn" id="newpw" data-t="newpw">换新密码</button>
+      <button class="btn danger" id="quit" data-t="quit">退出被控端</button>
     </div>
     <div class="perms" id="perms"></div>
     <div class="perms" id="ts"></div>
@@ -109,6 +109,56 @@
   </div>
 </main>
 <script>
+// 公开部分的多语言（诊断区是开发者自用，保持中文）。语言跟被控端（系统语言）一致，由 api/info 的 lang 决定
+// 列：zh-Hans en zh-Hant ja ko es fr de pt ru
+const LANGS = ["zh-Hans", "en", "zh-Hant", "ja", "ko", "es", "fr", "de", "pt", "ru"];
+const TR = {
+  title: ["RDesk 被控端", "RDesk Host", "RDesk 被控端", "RDesk Host", "RDesk Host", "RDesk Host", "RDesk Host", "RDesk Host", "RDesk Host", "RDesk Host"],
+  waiting: ["等待连接", "Waiting", "等待連線", "接続待ち", "연결 대기", "Esperando", "En attente", "Wartet", "Aguardando", "Ожидание"],
+  connected: ["已连接", "Connected", "已連線", "接続中", "연결됨", "Conectado", "Connecté", "Verbunden", "Conectado", "Подключено"],
+  notRunning: ["rdesk 没在运行", "RDesk Host is not running", "rdesk 沒在執行", "RDesk Host が起動していません", "RDesk Host가 실행 중이 아님", "RDesk Host no se está ejecutando", "RDesk Host n’est pas lancé", "RDesk Host läuft nicht", "O RDesk Host não está em execução", "RDesk Host не запущен"],
+  subIdle: ["在手机或电脑上打开 RDesk，连接这台电脑", "Open RDesk on your phone or another computer to connect to this one", "在手機或電腦上開啟 RDesk，連線這台電腦", "スマホや別のコンピュータで RDesk を開いて、このコンピュータに接続します", "휴대폰이나 다른 컴퓨터에서 RDesk를 열어 이 컴퓨터에 연결하세요", "Abre RDesk en tu teléfono u otro equipo para conectarte a este", "Ouvrez RDesk sur votre téléphone ou un autre ordinateur pour vous connecter à celui-ci", "Öffne RDesk auf dem Telefon oder einem anderen Computer, um dich mit diesem zu verbinden", "Abra o RDesk no telefone ou em outro computador para conectar a este", "Откройте RDesk на телефоне или другом компьютере, чтобы подключиться к этому"],
+  subActive: ["控制端已连接", "A viewer is connected", "控制端已連線", "ビューアが接続中", "뷰어 연결됨", "Hay un visor conectado", "Une visionneuse est connectée", "Ein Viewer ist verbunden", "Um visualizador está conectado", "Клиент подключён"],
+  addrLabel: ["远程地址（填到控制端 RDesk 里）", "Address (enter it in the RDesk app)", "遠端位址（填到控制端 RDesk 裡）", "アドレス（RDesk アプリに入力）", "주소 (RDesk 앱에 입력)", "Dirección (introdúcela en la app RDesk)", "Adresse (à saisir dans l’app RDesk)", "Adresse (in der RDesk-App eingeben)", "Endereço (digite no app RDesk)", "Адрес (введите в приложении RDesk)"],
+  id: ["设备 ID", "Device ID", "裝置 ID", "デバイス ID", "기기 ID", "ID del dispositivo", "ID de l’appareil", "Geräte-ID", "ID do dispositivo", "ID устройства"],
+  pw: ["密码", "Password", "密碼", "パスワード", "비밀번호", "Contraseña", "Mot de passe", "Passwort", "Senha", "Пароль"],
+  show: ["显示", "Show", "顯示", "表示", "표시", "Mostrar", "Afficher", "Anzeigen", "Mostrar", "Показать"],
+  hide: ["隐藏", "Hide", "隱藏", "隠す", "숨기기", "Ocultar", "Masquer", "Ausblenden", "Ocultar", "Скрыть"],
+  copy: ["复制地址 / ID / 密码", "Copy Address / ID / Password", "拷貝位址 / ID / 密碼", "アドレス / ID / パスワードをコピー", "주소 / ID / 비밀번호 복사", "Copiar dirección / ID / contraseña", "Copier adresse / ID / mot de passe", "Adresse / ID / Passwort kopieren", "Copiar endereço / ID / senha", "Копировать адрес / ID / пароль"],
+  copied: ["已复制", "Copied", "已拷貝", "コピーしました", "복사됨", "Copiado", "Copié", "Kopiert", "Copiado", "Скопировано"],
+  newpw: ["换新密码", "New Password", "換新密碼", "新しいパスワード", "새 비밀번호", "Nueva contraseña", "Nouveau mot de passe", "Neues Passwort", "Nova senha", "Новый пароль"],
+  quit: ["退出被控端", "Quit Host", "結束被控端", "ホストを終了", "호스트 종료", "Salir del host", "Quitter l’hôte", "Host beenden", "Encerrar host", "Выйти"],
+  screen: ["屏幕录制", "Screen Recording", "螢幕錄製", "画面収録", "화면 기록", "Grabación de pantalla", "Enregistrement de l’écran", "Bildschirmaufnahme", "Gravação de tela", "Запись экрана"],
+  access: ["辅助功能（键鼠控制）", "Accessibility (keyboard & mouse)", "輔助使用（鍵鼠控制）", "アクセシビリティ（キーボードとマウス）", "손쉬운 사용 (키보드·마우스)", "Accesibilidad (teclado y ratón)", "Accessibilité (clavier et souris)", "Bedienungshilfen (Tastatur & Maus)", "Acessibilidade (teclado e mouse)", "Универсальный доступ (клавиатура и мышь)"],
+  permOff: ["✗ {0}未开启", "✗ {0} not allowed", "✗ {0}未開啟", "✗ {0}が許可されていません", "✗ {0} 허용 안 됨", "✗ {0} no permitido", "✗ {0} non autorisé", "✗ {0} nicht erlaubt", "✗ {0} não permitido", "✗ {0}: нет разрешения"],
+  enable: ["去开启", "Open Settings", "前往開啟", "設定を開く", "설정 열기", "Abrir Ajustes", "Ouvrir Réglages", "Einstellungen öffnen", "Abrir Ajustes", "Открыть настройки"],
+  m_tailscale: ["Tailscale 直连", "Direct via Tailscale", "Tailscale 直連", "Tailscale 直結", "Tailscale 직접 연결", "Directo por Tailscale", "Direct via Tailscale", "Direkt über Tailscale", "Direto pelo Tailscale", "Напрямую через Tailscale"],
+  m_cloudflare: ["Cloudflare 隧道", "Cloudflare tunnel", "Cloudflare 通道", "Cloudflare トンネル", "Cloudflare 터널", "Túnel de Cloudflare", "Tunnel Cloudflare", "Cloudflare-Tunnel", "Túnel Cloudflare", "Туннель Cloudflare"],
+  m_waiting: ["等待 Tailscale", "Waiting for Tailscale", "等待 Tailscale", "Tailscale 待ち", "Tailscale 대기 중", "Esperando a Tailscale", "En attente de Tailscale", "Warte auf Tailscale", "Aguardando o Tailscale", "Ожидание Tailscale"],
+  m_local: ["本机测试", "Local test", "本機測試", "ローカルテスト", "로컬 테스트", "Prueba local", "Test local", "Lokaler Test", "Teste local", "Локальный тест"],
+  m_relay: ["自建中继", "Self-hosted relay", "自建中繼", "セルフホスト中継", "자체 중계", "Relé propio", "Relais auto-hébergé", "Eigenes Relay", "Relé próprio", "Свой ретранслятор"],
+  tsOk: ["✓ Tailscale 已连接（本机 {0}）", "✓ Tailscale connected (this computer {0})", "✓ Tailscale 已連線（本機 {0}）", "✓ Tailscale 接続済み（このコンピュータ {0}）", "✓ Tailscale 연결됨 (이 컴퓨터 {0})", "✓ Tailscale conectado (este equipo {0})", "✓ Tailscale connecté (cet ordinateur {0})", "✓ Tailscale verbunden (dieser Computer {0})", "✓ Tailscale conectado (este computador {0})", "✓ Tailscale подключён (этот компьютер {0})"],
+  tsOkHint: ["控制端设备上也要打开 Tailscale 并登录同一个账号", "The viewer device also needs Tailscale open and signed in to the same account", "控制端裝置上也要開啟 Tailscale 並登入同一個帳號", "ビューア側の端末でも Tailscale を開き、同じアカウントでログインしてください", "뷰어 기기에서도 Tailscale을 켜고 같은 계정으로 로그인해야 합니다", "El dispositivo visor también necesita Tailscale abierto con la misma cuenta", "L’appareil de la visionneuse doit aussi avoir Tailscale ouvert avec le même compte", "Auch auf dem Viewer-Gerät muss Tailscale mit demselben Konto laufen", "O dispositivo visualizador também precisa do Tailscale aberto com a mesma conta", "На устройстве клиента тоже должен быть открыт Tailscale с той же учётной записью"],
+  tsOff: ["✗ Tailscale 已安装但没连接", "✗ Tailscale is installed but not connected", "✗ Tailscale 已安裝但未連線", "✗ Tailscale はインストール済みですが未接続です", "✗ Tailscale이 설치되었지만 연결되지 않음", "✗ Tailscale está instalado pero no conectado", "✗ Tailscale est installé mais pas connecté", "✗ Tailscale ist installiert, aber nicht verbunden", "✗ Tailscale instalado, mas desconectado", "✗ Tailscale установлен, но не подключён"],
+  tsOffHint: ["打开 Tailscale 并登录，连上后这里会自动继续", "Open Tailscale and sign in; this continues automatically once connected", "開啟 Tailscale 並登入，連上後這裡會自動繼續", "Tailscale を開いてログインすると自動で続行します", "Tailscale을 열고 로그인하면 자동으로 계속됩니다", "Abre Tailscale e inicia sesión; continuará solo al conectarse", "Ouvrez Tailscale et connectez-vous ; la suite est automatique", "Tailscale öffnen und anmelden; danach geht es automatisch weiter", "Abra o Tailscale e entre; continua sozinho ao conectar", "Откройте Tailscale и войдите — дальше всё продолжится автоматически"],
+  tsNone: ["✗ 没检测到 Tailscale", "✗ Tailscale not found", "✗ 沒偵測到 Tailscale", "✗ Tailscale が見つかりません", "✗ Tailscale를 찾을 수 없음", "✗ No se encuentra Tailscale", "✗ Tailscale introuvable", "✗ Tailscale nicht gefunden", "✗ Tailscale não encontrado", "✗ Tailscale не найден"],
+  tsDl: ["下载 Tailscale（免费）", "Download Tailscale (free)", "下載 Tailscale（免費）", "Tailscale をダウンロード（無料）", "Tailscale 다운로드 (무료)", "Descargar Tailscale (gratis)", "Télécharger Tailscale (gratuit)", "Tailscale laden (kostenlos)", "Baixar o Tailscale (grátis)", "Скачать Tailscale (бесплатно)"],
+  tsNoneHint: ["安装登录后自动继续；控制端设备上也装一个并登录同一账号", "Continues automatically after you sign in; install it on the viewer device too, with the same account", "安裝登入後自動繼續；控制端裝置上也裝一個並登入同一帳號", "ログインすると自動で続行します。ビューア側にも入れて同じアカウントでログインしてください", "로그인하면 자동으로 계속됩니다. 뷰어 기기에도 설치해 같은 계정으로 로그인하세요", "Continuará solo al iniciar sesión; instálalo también en el visor con la misma cuenta", "La suite est automatique après connexion ; installez-le aussi sur la visionneuse avec le même compte", "Geht nach der Anmeldung automatisch weiter; auch auf dem Viewer mit demselben Konto installieren", "Continua sozinho após entrar; instale também no visualizador com a mesma conta", "Продолжится после входа; установите его и на клиент с той же учётной записью"],
+  copyText: ["地址：{0}\n设备 ID：{1}\n密码：{2}", "Address: {0}\nDevice ID: {1}\nPassword: {2}", "位址：{0}\n裝置 ID：{1}\n密碼：{2}", "アドレス: {0}\nデバイス ID: {1}\nパスワード: {2}", "주소: {0}\n기기 ID: {1}\n비밀번호: {2}", "Dirección: {0}\nID: {1}\nContraseña: {2}", "Adresse : {0}\nID : {1}\nMot de passe : {2}", "Adresse: {0}\nGeräte-ID: {1}\nPasswort: {2}", "Endereço: {0}\nID: {1}\nSenha: {2}", "Адрес: {0}\nID: {1}\nПароль: {2}"],
+  confirmNew: ["换新密码后，正在连接的控制端会断开，需要用新密码重新连接。继续？", "A connected viewer will be disconnected and must reconnect with the new password. Continue?", "換新密碼後，正在連線的控制端會中斷，需要用新密碼重新連線。繼續？", "接続中のビューアは切断され、新しいパスワードで接続し直す必要があります。続けますか？", "연결된 뷰어가 끊기며 새 비밀번호로 다시 연결해야 합니다. 계속할까요?", "El visor conectado se desconectará y tendrá que usar la nueva contraseña. ¿Continuar?", "La visionneuse connectée sera déconnectée et devra utiliser le nouveau mot de passe. Continuer ?", "Ein verbundener Viewer wird getrennt und braucht das neue Passwort. Fortfahren?", "O visualizador conectado será desconectado e precisará da nova senha. Continuar?", "Подключённый клиент будет отключён и должен войти с новым паролем. Продолжить?"],
+  confirmQuit: ["退出后控制端将无法连接这台电脑，直到再次打开 RDesk Host。确定退出？", "After quitting, nobody can connect to this computer until you open RDesk Host again. Quit?", "結束後控制端將無法連線這台電腦，直到再次開啟 RDesk Host。確定結束？", "終了すると、RDesk Host を再び開くまでこのコンピュータに接続できません。終了しますか？", "종료하면 RDesk Host를 다시 열 때까지 이 컴퓨터에 연결할 수 없습니다. 종료할까요?", "Al salir, nadie podrá conectarse a este equipo hasta que abras RDesk Host de nuevo. ¿Salir?", "Après avoir quitté, personne ne pourra se connecter à cet ordinateur avant de rouvrir RDesk Host. Quitter ?", "Danach kann sich niemand verbinden, bis RDesk Host wieder geöffnet wird. Beenden?", "Depois de sair, ninguém poderá conectar a este computador até abrir o RDesk Host de novo. Sair?", "После выхода к этому компьютеру нельзя будет подключиться, пока RDesk Host не будет снова открыт. Выйти?"],
+  quitTitle: ["RDesk 被控端已退出", "RDesk Host has quit", "RDesk 被控端已結束", "RDesk Host を終了しました", "RDesk Host가 종료됨", "RDesk Host se ha cerrado", "RDesk Host a été quitté", "RDesk Host wurde beendet", "O RDesk Host foi encerrado", "RDesk Host закрыт"],
+  quitHint: ["重新打开「RDesk Host」即可再次连接。", "Open RDesk Host again to allow connections.", "重新開啟「RDesk Host」即可再次連線。", "RDesk Host をもう一度開くと接続できるようになります。", "RDesk Host를 다시 열면 연결할 수 있습니다.", "Abre RDesk Host de nuevo para permitir conexiones.", "Rouvrez RDesk Host pour autoriser les connexions.", "RDesk Host erneut öffnen, um Verbindungen zu erlauben.", "Abra o RDesk Host de novo para permitir conexões.", "Откройте RDesk Host снова, чтобы разрешить подключения."],
+};
+let col = 0; // 下标进 LANGS；api/info 返回后更新
+function t(k, ...a) { const row = TR[k]; let s = row ? row[col] || row[0] : k; a.forEach((v, i) => s = s.replace("{" + i + "}", v)); return s; }
+function applyLang(code) {
+  const i = Math.max(0, LANGS.indexOf(code));
+  if (i === col && document.documentElement.dataset.l) return;
+  col = i; document.documentElement.dataset.l = code;
+  document.documentElement.lang = code; document.title = t("title");
+  document.querySelectorAll("[data-t]").forEach((el) => el.textContent = t(el.dataset.t));
+}
 const $ = (id) => document.getElementById(id);
 const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const tsHist = [];
@@ -144,10 +194,10 @@ const fmt = (v, d = 0) => v == null || isNaN(v) ? "–" : Number(v).toFixed(d);
 async function tick() {
   let d;
   try { d = await (await fetch("diag.json", { cache: "no-store" })).json(); }
-  catch { $("state").textContent = "rdesk 没在运行"; $("state").className = "pill"; return; }
-  $("state").textContent = d.active ? "已连接" : "等待连接";
+  catch { $("state").textContent = t("notRunning"); $("state").className = "pill"; return; }
+  $("state").textContent = d.active ? t("connected") : t("waiting");
   $("state").className = "pill" + (d.active ? " on" : "");
-  if (d.diag === false) { $("diagArea").style.display = "none"; $("sub").textContent = d.active ? "手机已连接" : "打开 iPhone 上的「RDesk 远控」连接这台电脑"; return; }
+  if (d.diag === false) { $("diagArea").style.display = "none"; $("sub").textContent = d.active ? t("subActive") : t("subIdle"); return; }
   $("sub").textContent = d.active ? `控制端 ${d.viewerIP} · ${d.codec || "握手中"} · 已连接 ${Math.round((Date.now() - d.since) / 1000)} 秒` : "";
 
   $("verdicts").innerHTML = (d.verdicts || []).map((v) => `<div class="vd ${v.level}">${v.msg}</div>`).join("");
@@ -181,38 +231,41 @@ let info = null, showPw = false;
 const H = { "X-RDesk": "1" };
 async function loadInfo() {
   try { info = await (await fetch("api/info", { headers: H, cache: "no-store" })).json(); } catch { return; }
+  applyLang(info.lang);
   $("addr").textContent = info.addr || "–";
   $("cid").textContent = info.id || "–";
   $("pw").textContent = showPw ? info.password : "••••••••";
-  const perm = (ok, name, pane) => ok ? `<span class="perm-ok">✓ ${name}</span>` :
-    `<span class="perm-bad">✗ ${name}未开启</span> <a href="x-apple.systempreferences:com.apple.preference.security?${pane}">去开启</a>`;
-  $("perms").innerHTML = perm(info.screen, "屏幕录制", "Privacy_ScreenCapture") + perm(info.access, "辅助功能（键鼠控制）", "Privacy_Accessibility") +
-    `<span class="muted">${{ tailscale: "Tailscale 直连", cloudflare: "Cloudflare 隧道", waiting: "等待 Tailscale", local: "本机测试", relay: "自建中继" }[info.mode] || info.mode} · v${info.version}</span>`;
+  const perm = (ok, name, pane) => ok ? `<span class="perm-ok">✓ ${t(name)}</span>` :
+    `<span class="perm-bad">${t("permOff", t(name))}</span> <a href="x-apple.systempreferences:com.apple.preference.security?${pane}">${t("enable")}</a>`;
+  // 屏幕录制 / 辅助功能权限只有 Mac 有
+  $("perms").innerHTML = (info.os === "darwin" ? perm(info.screen, "screen", "Privacy_ScreenCapture") + perm(info.access, "access", "Privacy_Accessibility") : "") +
+    `<span class="muted">${TR["m_" + info.mode] ? t("m_" + info.mode) : info.mode} · v${info.version}</span>`;
   renderTS();
 }
 function renderTS() {
   if (!info) return;
   let h;
-  if (info.tsIP) h = `<span class="perm-ok">✓ Tailscale 已连接（本机 ${info.tsIP}）</span><span class="muted">iPhone 上也要打开 Tailscale 并登录同一个账号</span>`;
-  else if (info.tsInstalled) h = `<span class="perm-bad">✗ Tailscale 已安装但没连接</span><span>打开菜单栏的 Tailscale 并登录，连上后这里会自动继续</span>`;
-  else h = `<span class="perm-bad">✗ 没检测到 Tailscale</span><a href="https://tailscale.com/download/mac" target="_blank" rel="noopener">下载 Tailscale（免费）</a><span class="muted">安装登录后自动继续；iPhone 上也装一个并登录同一账号</span>`;
+  const dl = "https://tailscale.com/download/" + (info.os === "windows" ? "windows" : "mac");
+  if (info.tsIP) h = `<span class="perm-ok">${t("tsOk", info.tsIP)}</span><span class="muted">${t("tsOkHint")}</span>`;
+  else if (info.tsInstalled) h = `<span class="perm-bad">${t("tsOff")}</span><span>${t("tsOffHint")}</span>`;
+  else h = `<span class="perm-bad">${t("tsNone")}</span><a href="${dl}" target="_blank" rel="noopener">${t("tsDl")}</a><span class="muted">${t("tsNoneHint")}</span>`;
   $("ts").innerHTML = h;
 }
-$("showpw").onclick = () => { showPw = !showPw; $("showpw").textContent = showPw ? "隐藏" : "显示"; loadInfo(); };
+$("showpw").onclick = () => { showPw = !showPw; $("showpw").textContent = showPw ? t("hide") : t("show"); loadInfo(); };
 $("copy").onclick = async () => {
   if (!info) return;
-  await navigator.clipboard.writeText(`地址：${info.addr}\n设备 ID：${info.id}\n密码：${info.password}`);
-  $("copy").textContent = "已复制"; setTimeout(() => $("copy").textContent = "复制地址 / ID / 密码", 1500);
+  await navigator.clipboard.writeText(t("copyText", info.addr, info.id, info.password));
+  $("copy").textContent = t("copied"); setTimeout(() => $("copy").textContent = t("copy"), 1500);
 };
 $("newpw").onclick = async () => {
-  if (!confirm("换新密码后，正在连接的手机会断开，需要用新密码重新连接。继续？")) return;
+  if (!confirm(t("confirmNew"))) return;
   await fetch("api/newpw", { method: "POST", headers: H });
-  showPw = true; $("showpw").textContent = "隐藏"; loadInfo();
+  showPw = true; $("showpw").textContent = t("hide"); loadInfo();
 };
 $("quit").onclick = async () => {
-  if (!confirm("退出后手机将无法连接这台电脑，直到再次打开 RDesk Host。确定退出？")) return;
+  if (!confirm(t("confirmQuit"))) return;
   await fetch("api/quit", { method: "POST", headers: H });
-  document.body.innerHTML = "<main><h1>RDesk 被控端已退出</h1><p class='muted'>重新打开「RDesk Host」即可再次连接。</p></main>";
+  document.body.innerHTML = `<main><h1>${t("quitTitle")}</h1><p class='muted'>${t("quitHint")}</p></main>`;
 };
 loadInfo(); setInterval(loadInfo, 3000);
 tick(); setInterval(tick, 1000);

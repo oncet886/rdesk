@@ -110,7 +110,7 @@ func runHost(o hostOpts) {
 		if time.Since(start) > 30*time.Second {
 			backoff = time.Second
 		}
-		log.Printf("与中继断开 (%v)，%v 后重连…", err, backoff)
+		log.Printf(L("与中继断开 (%v)，%v 后重连…"), err, backoff)
 		time.Sleep(backoff)
 		if backoff < 30*time.Second {
 			backoff *= 2
@@ -137,7 +137,7 @@ func (h *host) connectOnce() error {
 	defer c.Close()
 	c.SetReadLimit(4 << 20)
 	h.conn = &wsConn{c: c}
-	log.Printf("✅ 已连接中继，等待控制端…")
+	log.Print(L("✅ 已连接中继，等待控制端…"))
 	stop := make(chan struct{})
 	defer close(stop)
 	go keepAlive(h.conn, stop)
@@ -152,7 +152,7 @@ func (h *host) connectOnce() error {
 			json.Unmarshal(data, &m)
 			switch m.T {
 			case "open":
-				log.Printf("📥 有控制端请求连接 (来自 %s)", m.IP)
+				log.Printf(L("📥 有控制端请求连接 (来自 %s)"), m.IP)
 				h.newSession()
 				diag.open(m.IP)
 			case "close":
@@ -183,7 +183,7 @@ func (h *host) endSession() {
 		}
 		if s.authed {
 			releaseAll()
-			log.Printf("👋 控制端已断开")
+			log.Print(L("👋 控制端已断开"))
 		}
 		diag.close()
 	}
@@ -244,7 +244,7 @@ func (h *host) handleBinary(data []byte) {
 		if s.wantAudio {
 			go h.audioLoop(ctx, s)
 		}
-		log.Printf("🔓 控制端验证通过，开始远程（%s）", codec)
+		log.Printf(L("🔓 控制端验证通过，开始远程（%s）"), codec)
 		return
 	}
 	h.handleInput(s, plain)
@@ -266,7 +266,7 @@ func (h *host) rejectAuth() {
 	if len(h.failures) > 20 {
 		h.failures = h.failures[len(h.failures)-20:]
 	}
-	log.Printf("⛔ 控制端密码错误")
+	log.Print(L("⛔ 控制端密码错误"))
 	if h.locked() {
 		h.reject("密码错误次数过多，已锁定 5 分钟")
 	} else {
@@ -400,7 +400,7 @@ func (h *host) streamVideo(ctx context.Context, s *session) {
 		// 手机屏幕显示不了更宽的画面，宽了只会让编码变慢（2560 宽每帧 25ms，1920 宽 8ms）
 		abr.reset(kbpsFor(set))
 		if err := videoStart(set.Display, min(set.MaxW, 1920), set.FPS, abr.kbps, s.wantAudio); err != nil {
-			log.Printf("硬件编码启动失败: %v", err)
+			log.Printf(L("硬件编码启动失败: %v"), err)
 			h.send(append([]byte{msgInfo}, "被控端截屏失败：请在被控电脑上授予「屏幕录制」权限"...))
 			return false
 		}
@@ -499,7 +499,7 @@ func (h *host) stream(ctx context.Context, s *session) {
 	report := func(err error) {
 		if e := fmt.Sprint(err); e != lastErr {
 			lastErr = e
-			log.Printf("截屏失败: %v（Mac 请在 系统设置→隐私与安全性→屏幕录制 中允许本程序）", err)
+			log.Printf(L("截屏失败: %v（Mac 请在 系统设置→隐私与安全性→屏幕录制 中允许本程序）"), err)
 			h.send(append([]byte{msgInfo}, "被控端截屏失败：请在被控电脑上授予「屏幕录制」权限"...))
 		}
 	}

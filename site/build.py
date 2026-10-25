@@ -139,6 +139,7 @@ ZH = f"""<section class="app-hero"><div class="container app-hero-grid">
   <div><dt>控制端</dt><dd>iPhone / iPad、安卓、Mac、Windows</dd></div>
   <div><dt>被控端</dt><dd>Mac（macOS 14+）、Windows 10 / 11</dd></div>
   <div><dt>连接</dt><dd>Tailscale 点对点直连，不经过中转</dd></div>
+  <div><dt>语言</dt><dd>简体中文、繁體中文、English、日本語、한국어 等 10 种，跟随系统</dd></div>
   <div><dt>价格</dt><dd>免费，没有账号、没有广告</dd></div>
 </dl></div></section>
 <section class="app-section" id="features"><div class="container">
@@ -176,6 +177,7 @@ EN = f"""<section class="app-hero"><div class="container app-hero-grid">
   <div><dt>Viewer</dt><dd>iPhone / iPad, Android, Mac, Windows</dd></div>
   <div><dt>Host</dt><dd>Mac (macOS 14+), Windows 10 / 11</dd></div>
   <div><dt>Connection</dt><dd>Peer to peer over Tailscale, no relay</dd></div>
+  <div><dt>Languages</dt><dd>English, 中文, 日本語, 한국어, Español, Français, Deutsch, Português, Русский. Follows your system</dd></div>
   <div><dt>Price</dt><dd>Free. No accounts, no ads</dd></div>
 </dl></div></section>
 <section class="app-section" id="features"><div class="container">

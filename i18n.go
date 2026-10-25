@@ -1,0 +1,109 @@
+package main
+
+import (
+	"os"
+	"strings"
+)
+
+// 被控端界面文字（菜单栏、控制台）：源语言简体中文，按系统语言显示翻译；查不到就用中文。
+// 发给控制端的提示保持中文原文，由各控制端按原文查自己的翻译（兼容已发布的版本）。
+
+// 翻译列顺序：en zh-Hant ja ko es fr de pt ru
+var langCol = func() int {
+	l := strings.ToLower(os.Getenv("RDESK_LANG"))
+	if l == "" {
+		l = strings.ToLower(systemLang())
+	}
+	switch {
+	case strings.HasPrefix(l, "zh"):
+		if strings.Contains(l, "hant") || strings.Contains(l, "tw") || strings.Contains(l, "hk") || strings.Contains(l, "mo") {
+			return 1
+		}
+		return -1
+	case strings.HasPrefix(l, "ja"):
+		return 2
+	case strings.HasPrefix(l, "ko"):
+		return 3
+	case strings.HasPrefix(l, "es"):
+		return 4
+	case strings.HasPrefix(l, "fr"):
+		return 5
+	case strings.HasPrefix(l, "de"):
+		return 6
+	case strings.HasPrefix(l, "pt"):
+		return 7
+	case strings.HasPrefix(l, "ru"):
+		return 8
+	}
+	return 0
+}()
+
+// 当前界面语言代码（控制面板网页按它查自己的翻译表）
+func langCode() string {
+	return [...]string{"zh-Hans", "en", "zh-Hant", "ja", "ko", "es", "fr", "de", "pt", "ru"}[langCol+1]
+}
+
+// L 返回当前系统语言的文字（参数是中文原文，可以带 %s / %d 等格式符，翻译里保留同样的格式符）
+func L(zh string) string {
+	if langCol < 0 {
+		return zh
+	}
+	if t, ok := i18nTable[zh]; ok && t[langCol] != "" {
+		return t[langCol]
+	}
+	return zh
+}
+
+var i18nTable = map[string][9]string{
+	// 菜单栏
+	"● 控制端已连接（%s）":                 {"● Viewer connected (%s)", "● 控制端已連線（%s）", "● ビューアが接続中（%s）", "● 뷰어 연결됨 (%s)", "● Visor conectado (%s)", "● Visionneuse connectée (%s)", "● Viewer verbunden (%s)", "● Visualizador conectado (%s)", "● Клиент подключён (%s)"},
+	"RDesk Host %s · 等待控制端连接":      {"RDesk Host %s · Waiting for a viewer", "RDesk Host %s · 等待控制端連線", "RDesk Host %s · 接続待ち", "RDesk Host %s · 뷰어 연결 대기 중", "RDesk Host %s · Esperando un visor", "RDesk Host %s · En attente d’une visionneuse", "RDesk Host %s · Warte auf Viewer", "RDesk Host %s · Aguardando um visualizador", "RDesk Host %s · Ожидание клиента"},
+	"地址　　%s　（点击复制）":                {"Address    %s  (click to copy)", "位址　　%s　（按一下拷貝）", "アドレス　%s　（クリックでコピー）", "주소　　%s　(클릭하여 복사)", "Dirección   %s  (clic para copiar)", "Adresse    %s  (cliquer pour copier)", "Adresse    %s  (klicken zum Kopieren)", "Endereço   %s  (clique para copiar)", "Адрес      %s  (нажмите, чтобы скопировать)"},
+	"设备 ID　%s　（点击复制）":              {"Device ID  %s  (click to copy)", "裝置 ID　%s　（按一下拷貝）", "デバイス ID　%s　（クリックでコピー）", "기기 ID　%s　(클릭하여 복사)", "ID          %s  (clic para copiar)", "ID         %s  (cliquer pour copier)", "Geräte-ID  %s  (klicken zum Kopieren)", "ID         %s  (clique para copiar)", "ID         %s  (нажмите, чтобы скопировать)"},
+	"密码　　••••••••　（点击复制，按住 ⌥ 显示）":  {"Password   ••••••••  (click to copy, hold ⌥ to show)", "密碼　　••••••••　（按一下拷貝，按住 ⌥ 顯示）", "パスワード　••••••••　（クリックでコピー、⌥ で表示）", "비밀번호　••••••••　(클릭하여 복사, ⌥ 누르면 표시)", "Contraseña  ••••••••  (clic para copiar, ⌥ para ver)", "Mot de passe  ••••••••  (cliquer pour copier, ⌥ pour afficher)", "Passwort   ••••••••  (klicken zum Kopieren, ⌥ zum Anzeigen)", "Senha      ••••••••  (clique para copiar, ⌥ para mostrar)", "Пароль     ••••••••  (нажмите — копировать, ⌥ — показать)"},
+	"密码　　%s　（点击复制）":                {"Password   %s  (click to copy)", "密碼　　%s　（按一下拷貝）", "パスワード　%s　（クリックでコピー）", "비밀번호　%s　(클릭하여 복사)", "Contraseña  %s  (clic para copiar)", "Mot de passe  %s  (cliquer pour copier)", "Passwort   %s  (klicken zum Kopieren)", "Senha      %s  (clique para copiar)", "Пароль     %s  (нажмите, чтобы скопировать)"},
+	"复制全部连接信息":                     {"Copy All Connection Details", "拷貝全部連線資訊", "接続情報をすべてコピー", "연결 정보 모두 복사", "Copiar todos los datos de conexión", "Copier toutes les informations de connexion", "Alle Verbindungsdaten kopieren", "Copiar todos os dados de conexão", "Скопировать все данные подключения"},
+	"✓ Tailscale 已连接（%s）":          {"✓ Tailscale connected (%s)", "✓ Tailscale 已連線（%s）", "✓ Tailscale 接続済み（%s）", "✓ Tailscale 연결됨 (%s)", "✓ Tailscale conectado (%s)", "✓ Tailscale connecté (%s)", "✓ Tailscale verbunden (%s)", "✓ Tailscale conectado (%s)", "✓ Tailscale подключён (%s)"},
+	"⚠️ Tailscale 没连接 — 点击下载或打开":   {"⚠️ Tailscale not connected — click to get or open it", "⚠️ Tailscale 未連線 — 按一下下載或開啟", "⚠️ Tailscale 未接続 — クリックして入手 / 起動", "⚠️ Tailscale 연결 안 됨 — 클릭하여 받기 또는 열기", "⚠️ Tailscale no conectado — clic para obtenerlo o abrirlo", "⚠️ Tailscale non connecté — cliquer pour l’obtenir ou l’ouvrir", "⚠️ Tailscale nicht verbunden — klicken zum Laden oder Öffnen", "⚠️ Tailscale desconectado — clique para baixar ou abrir", "⚠️ Tailscale не подключён — нажмите, чтобы скачать или открыть"},
+	"⚠️ 缺少「屏幕录制」权限 — 点击去设置":        {"⚠️ Screen Recording permission missing — click to open Settings", "⚠️ 缺少「螢幕錄製」權限 — 按一下前往設定", "⚠️「画面収録」の許可がありません — クリックで設定へ", "⚠️ 화면 기록 권한 없음 — 클릭하여 설정 열기", "⚠️ Falta el permiso de grabación de pantalla — clic para abrir Ajustes", "⚠️ Autorisation d’enregistrement de l’écran manquante — cliquer pour ouvrir Réglages", "⚠️ Bildschirmaufnahme nicht erlaubt — klicken für Einstellungen", "⚠️ Falta a permissão de gravação de tela — clique para abrir Ajustes", "⚠️ Нет разрешения на запись экрана — нажмите, чтобы открыть настройки"},
+	"⚠️ 缺少「辅助功能」权限（只能看不能控）— 点击去设置": {"⚠️ Accessibility permission missing (view only) — click to open Settings", "⚠️ 缺少「輔助使用」權限（只能看不能控）— 按一下前往設定", "⚠️「アクセシビリティ」の許可がありません（表示のみ）— クリックで設定へ", "⚠️ 손쉬운 사용 권한 없음 (보기만 가능) — 클릭하여 설정 열기", "⚠️ Falta el permiso de Accesibilidad (solo ver) — clic para abrir Ajustes", "⚠️ Autorisation Accessibilité manquante (affichage seul) — cliquer pour ouvrir Réglages", "⚠️ Bedienungshilfen nicht erlaubt (nur Ansicht) — klicken für Einstellungen", "⚠️ Falta a permissão de Acessibilidade (só visualizar) — clique para abrir Ajustes", "⚠️ Нет разрешения «Универсальный доступ» (только просмотр) — нажмите для настроек"},
+	"✓ 屏幕录制、辅助功能权限正常":              {"✓ Screen Recording and Accessibility allowed", "✓ 螢幕錄製、輔助使用權限正常", "✓ 画面収録とアクセシビリティは許可済み", "✓ 화면 기록 및 손쉬운 사용 허용됨", "✓ Grabación de pantalla y Accesibilidad permitidas", "✓ Enregistrement de l’écran et Accessibilité autorisés", "✓ Bildschirmaufnahme und Bedienungshilfen erlaubt", "✓ Gravação de tela e Acessibilidade permitidas", "✓ Запись экрана и универсальный доступ разрешены"},
+	"打开控制面板…":                      {"Open Control Panel…", "開啟控制面板…", "コントロールパネルを開く…", "제어판 열기…", "Abrir panel de control…", "Ouvrir le panneau de contrôle…", "Systemsteuerung öffnen…", "Abrir painel de controle…", "Открыть панель управления…"},
+	"换新密码…":                        {"New Password…", "換新密碼…", "新しいパスワード…", "새 비밀번호…", "Nueva contraseña…", "Nouveau mot de passe…", "Neues Passwort…", "Nova senha…", "Новый пароль…"},
+	"登录时自动启动":                      {"Open at Login", "登入時自動啟動", "ログイン時に起動", "로그인 시 자동 실행", "Abrir al iniciar sesión", "Ouvrir à la connexion", "Beim Anmelden öffnen", "Abrir ao iniciar sessão", "Открывать при входе"},
+	"退出 RDesk Host":                {"Quit RDesk Host", "結束 RDesk Host", "RDesk Host を終了", "RDesk Host 종료", "Salir de RDesk Host", "Quitter RDesk Host", "RDesk Host beenden", "Encerrar o RDesk Host", "Выйти из RDesk Host"},
+	"地址：%s\n设备 ID：%s\n密码：%s":       {"Address: %s\nDevice ID: %s\nPassword: %s", "位址：%s\n裝置 ID：%s\n密碼：%s", "アドレス: %s\nデバイス ID: %s\nパスワード: %s", "주소: %s\n기기 ID: %s\n비밀번호: %s", "Dirección: %s\nID: %s\nContraseña: %s", "Adresse : %s\nID : %s\nMot de passe : %s", "Adresse: %s\nGeräte-ID: %s\nPasswort: %s", "Endereço: %s\nID: %s\nSenha: %s", "Адрес: %s\nID: %s\nПароль: %s"},
+	"换一个新密码？":                      {"Create a new password?", "換一個新密碼？", "新しいパスワードにしますか？", "새 비밀번호를 만들까요?", "¿Crear una contraseña nueva?", "Créer un nouveau mot de passe ?", "Neues Passwort erstellen?", "Criar uma nova senha?", "Создать новый пароль?"},
+	"正在连接的控制端会断开，需要用新密码重新连接。":      {"Any connected viewer will be disconnected and must reconnect with the new password.", "正在連線的控制端會中斷，需要用新密碼重新連線。", "接続中のビューアは切断され、新しいパスワードで接続し直す必要があります。", "연결된 뷰어는 끊기며 새 비밀번호로 다시 연결해야 합니다.", "Se desconectará el visor actual y tendrá que volver a conectarse con la nueva contraseña.", "La visionneuse connectée sera déconnectée et devra se reconnecter avec le nouveau mot de passe.", "Verbundene Viewer werden getrennt und müssen sich mit dem neuen Passwort neu verbinden.", "O visualizador conectado será desconectado e precisará reconectar com a nova senha.", "Подключённый клиент будет отключён и должен переподключиться с новым паролем."},
+	"换新密码":   {"New Password", "換新密碼", "新しいパスワード", "새 비밀번호", "Nueva contraseña", "Nouveau mot de passe", "Neues Passwort", "Nova senha", "Новый пароль"},
+	"新密码已复制": {"New password copied", "新密碼已拷貝", "新しいパスワードをコピーしました", "새 비밀번호가 복사됨", "Contraseña nueva copiada", "Nouveau mot de passe copié", "Neues Passwort kopiert", "Nova senha copiada", "Новый пароль скопирован"},
+	"新密码：%s\n已复制到剪贴板。": {"New password: %s\nCopied to the clipboard.", "新密碼：%s\n已拷貝到剪貼簿。", "新しいパスワード: %s\nクリップボードにコピーしました。", "새 비밀번호: %s\n클립보드에 복사되었습니다.", "Contraseña nueva: %s\nCopiada al portapapeles.", "Nouveau mot de passe : %s\nCopié dans le presse-papiers.", "Neues Passwort: %s\nIn die Zwischenablage kopiert.", "Nova senha: %s\nCopiada para a área de transferência.", "Новый пароль: %s\nСкопирован в буфер обмена."},
+	"好": {"OK", "好", "OK", "확인", "Aceptar", "OK", "OK", "OK", "ОК"},
+	// 控制台
+	"远程地址":             {"Address", "遠端位址", "アドレス", "주소", "Dirección", "Adresse", "Adresse", "Endereço", "Адрес"},
+	"设备 ID":            {"Device ID", "裝置 ID", "デバイス ID", "기기 ID", "ID", "ID", "Geräte-ID", "ID", "ID"},
+	"密码":               {"Password", "密碼", "パスワード", "비밀번호", "Contraseña", "Mot de passe", "Passwort", "Senha", "Пароль"},
+	"控制面板":             {"Panel", "控制面板", "パネル", "제어판", "Panel", "Panneau", "Steuerung", "Painel", "Панель"},
+	"（只能在这台电脑上打开）":     {"(opens only on this computer)", "（只能在這台電腦上開啟）", "（このコンピュータでのみ開けます）", "(이 컴퓨터에서만 열림)", "(solo se abre en este equipo)", "(s’ouvre uniquement sur cet ordinateur)", "(nur auf diesem Computer)", "(abre só neste computador)", "(открывается только на этом компьютере)"},
+	"等待 Tailscale 连接…": {"Waiting for Tailscale…", "等待 Tailscale 連線…", "Tailscale の接続を待っています…", "Tailscale 연결 대기 중…", "Esperando a Tailscale…", "En attente de Tailscale…", "Warte auf Tailscale…", "Aguardando o Tailscale…", "Ожидание Tailscale…"},
+	"没检测到 Tailscale，请安装并登录 Tailscale：https://tailscale.com/download （打开后会自动继续）": {"Tailscale not found. Install it and sign in: https://tailscale.com/download (RDesk continues automatically)", "沒偵測到 Tailscale，請安裝並登入 Tailscale：https://tailscale.com/download （開啟後會自動繼續）", "Tailscale が見つかりません。インストールしてログインしてください: https://tailscale.com/download（起動すると自動で続行）", "Tailscale를 찾을 수 없습니다. 설치 후 로그인하세요: https://tailscale.com/download (실행하면 자동으로 계속)", "No se encuentra Tailscale. Instálalo e inicia sesión: https://tailscale.com/download (continuará solo)", "Tailscale introuvable. Installez-le et connectez-vous : https://tailscale.com/download (la suite est automatique)", "Tailscale nicht gefunden. Installieren und anmelden: https://tailscale.com/download (geht danach automatisch weiter)", "Tailscale não encontrado. Instale e entre: https://tailscale.com/download (continua sozinho)", "Tailscale не найден. Установите и войдите: https://tailscale.com/download (продолжится автоматически)"},
+	"端口 %d 已被其他程序使用，换下一个":                                                       {"Port %d is in use by another program; trying the next one", "連接埠 %d 已被其他程式使用，換下一個", "ポート %d は使用中のため次を試します", "포트 %d가 사용 중이라 다음 포트를 시도합니다", "El puerto %d está en uso; se prueba el siguiente", "Le port %d est utilisé ; essai du suivant", "Port %d ist belegt; versuche den nächsten", "A porta %d está em uso; tentando a próxima", "Порт %d занят, пробую следующий"},
+	"Tailscale 直连模式（不经过任何中转服务器）":                                                {"Direct Tailscale mode (no relay server in between)", "Tailscale 直連模式（不經過任何中轉伺服器）", "Tailscale 直結モード（中継サーバーなし）", "Tailscale 직접 연결 모드 (중계 서버 없음)", "Modo directo por Tailscale (sin servidor intermedio)", "Mode direct Tailscale (aucun serveur relais)", "Direkter Tailscale-Modus (kein Relay-Server)", "Modo direto pelo Tailscale (sem servidor intermediário)", "Прямой режим Tailscale (без ретранслятора)"},
+	"正在打开 Cloudflare 隧道…（本机测试地址 %s）":                                            {"Opening a Cloudflare tunnel… (local test address %s)", "正在開啟 Cloudflare 通道…（本機測試位址 %s）", "Cloudflare トンネルを開いています…（ローカルテスト用 %s）", "Cloudflare 터널을 여는 중… (로컬 테스트 주소 %s)", "Abriendo un túnel de Cloudflare… (dirección local de prueba %s)", "Ouverture d’un tunnel Cloudflare… (adresse de test locale %s)", "Cloudflare-Tunnel wird geöffnet… (lokale Testadresse %s)", "Abrindo um túnel Cloudflare… (endereço local de teste %s)", "Открываю туннель Cloudflare… (локальный адрес %s)"},
+	"正在打开 Cloudflare 隧道…":                                                       {"Opening a Cloudflare tunnel…", "正在開啟 Cloudflare 通道…", "Cloudflare トンネルを開いています…", "Cloudflare 터널을 여는 중…", "Abriendo un túnel de Cloudflare…", "Ouverture d’un tunnel Cloudflare…", "Cloudflare-Tunnel wird geöffnet…", "Abrindo um túnel Cloudflare…", "Открываю туннель Cloudflare…"},
+	"与中继断开 (%v)，%v 后重连…":                                                        {"Lost the relay (%v); reconnecting in %v…", "與中繼中斷 (%v)，%v 後重連…", "中継との接続が切れました (%v)。%v 後に再接続…", "중계 연결 끊김 (%v), %v 후 다시 연결…", "Se perdió el relé (%v); reconectando en %v…", "Relais perdu (%v) ; reconnexion dans %v…", "Relay getrennt (%v); neuer Versuch in %v…", "Relé perdido (%v); reconectando em %v…", "Связь с ретранслятором потеряна (%v); повтор через %v…"},
+	"✅ 已连接中继，等待控制端…":                                                            {"✅ Ready, waiting for a viewer…", "✅ 已連線中繼，等待控制端…", "✅ 準備完了、ビューアを待っています…", "✅ 준비 완료, 뷰어 대기 중…", "✅ Listo, esperando un visor…", "✅ Prêt, en attente d’une visionneuse…", "✅ Bereit, warte auf Viewer…", "✅ Pronto, aguardando um visualizador…", "✅ Готово, ожидание клиента…"},
+	"📥 有控制端请求连接 (来自 %s)":                                                        {"📥 A viewer is connecting (from %s)", "📥 有控制端請求連線 (來自 %s)", "📥 ビューアから接続要求（%s）", "📥 뷰어 연결 요청 (%s)", "📥 Un visor se está conectando (desde %s)", "📥 Une visionneuse se connecte (depuis %s)", "📥 Ein Viewer verbindet sich (von %s)", "📥 Um visualizador está conectando (de %s)", "📥 Подключается клиент (с %s)"},
+	"👋 控制端已断开":                                                                  {"👋 Viewer disconnected", "👋 控制端已中斷", "👋 ビューアが切断しました", "👋 뷰어 연결 끊김", "👋 Visor desconectado", "👋 Visionneuse déconnectée", "👋 Viewer getrennt", "👋 Visualizador desconectado", "👋 Клиент отключился"},
+	"🔓 控制端验证通过，开始远程（%s）":                                                        {"🔓 Viewer verified, remote session started (%s)", "🔓 控制端驗證通過，開始遠端（%s）", "🔓 認証成功、リモート開始（%s）", "🔓 뷰어 인증 완료, 원격 시작 (%s)", "🔓 Visor verificado, sesión iniciada (%s)", "🔓 Visionneuse vérifiée, session démarrée (%s)", "🔓 Viewer bestätigt, Sitzung gestartet (%s)", "🔓 Visualizador verificado, sessão iniciada (%s)", "🔓 Клиент проверен, сеанс начат (%s)"},
+	"⛔ 控制端密码错误":                                                                 {"⛔ Viewer entered a wrong password", "⛔ 控制端密碼錯誤", "⛔ ビューアのパスワードが違います", "⛔ 뷰어 비밀번호 틀림", "⛔ El visor introdujo una contraseña incorrecta", "⛔ Mot de passe incorrect de la visionneuse", "⛔ Viewer hat ein falsches Passwort eingegeben", "⛔ Senha incorreta no visualizador", "⛔ Клиент ввёл неверный пароль"},
+	"截屏失败: %v（Mac 请在 系统设置→隐私与安全性→屏幕录制 中允许本程序）":                                  {"Screen capture failed: %v (on a Mac, allow this app in System Settings → Privacy & Security → Screen Recording)", "截圖失敗: %v（Mac 請在 系統設定→隱私權與安全性→螢幕錄製 中允許本程式）", "画面の取得に失敗: %v（Mac ではシステム設定 → プライバシーとセキュリティ → 画面収録 で許可してください）", "화면 캡처 실패: %v (Mac은 시스템 설정 → 개인정보 보호 및 보안 → 화면 기록에서 허용하세요)", "Error al capturar la pantalla: %v (en Mac, permítelo en Ajustes → Privacidad y seguridad → Grabación de pantalla)", "Échec de la capture : %v (sur Mac, autorisez l’app dans Réglages → Confidentialité et sécurité → Enregistrement de l’écran)", "Bildschirmaufnahme fehlgeschlagen: %v (am Mac unter Einstellungen → Datenschutz & Sicherheit → Bildschirmaufnahme erlauben)", "Falha na captura: %v (no Mac, permita em Ajustes → Privacidade e Segurança → Gravação de Tela)", "Не удалось снять экран: %v (на Mac разрешите в Настройки → Конфиденциальность и безопасность → Запись экрана)"},
+	"硬件编码启动失败: %v":                                                              {"Video encoder failed to start: %v", "硬體編碼啟動失敗: %v", "エンコーダの起動に失敗: %v", "인코더 시작 실패: %v", "No se pudo iniciar el codificador: %v", "Échec du démarrage de l’encodeur : %v", "Encoder-Start fehlgeschlagen: %v", "Falha ao iniciar o codificador: %v", "Не удалось запустить кодировщик: %v"},
+	"[relay] 被控端上线 id=%s from=%s":                                               {"[relay] host online id=%s from=%s", "[relay] 被控端上線 id=%s from=%s", "[relay] ホスト接続 id=%s from=%s", "[relay] 호스트 온라인 id=%s from=%s", "[relay] equipo en línea id=%s from=%s", "[relay] hôte en ligne id=%s from=%s", "[relay] Host online id=%s from=%s", "[relay] host online id=%s from=%s", "[relay] хост в сети id=%s from=%s"},
+	"[relay] 被控端下线 id=%s":                                                       {"[relay] host offline id=%s", "[relay] 被控端離線 id=%s", "[relay] ホスト切断 id=%s", "[relay] 호스트 오프라인 id=%s", "[relay] equipo desconectado id=%s", "[relay] hôte hors ligne id=%s", "[relay] Host offline id=%s", "[relay] host offline id=%s", "[relay] хост не в сети id=%s"},
+	"[relay] 控制端接入 id=%s from=%s":                                               {"[relay] viewer joined id=%s from=%s", "[relay] 控制端接入 id=%s from=%s", "[relay] ビューア接続 id=%s from=%s", "[relay] 뷰어 접속 id=%s from=%s", "[relay] visor conectado id=%s from=%s", "[relay] visionneuse connectée id=%s from=%s", "[relay] Viewer verbunden id=%s from=%s", "[relay] visualizador conectado id=%s from=%s", "[relay] клиент подключён id=%s from=%s"},
+	"[relay] 控制端断开 id=%s":                                                       {"[relay] viewer left id=%s", "[relay] 控制端中斷 id=%s", "[relay] ビューア切断 id=%s", "[relay] 뷰어 연결 끊김 id=%s", "[relay] visor desconectado id=%s", "[relay] visionneuse déconnectée id=%s", "[relay] Viewer getrennt id=%s", "[relay] visualizador desconectado id=%s", "[relay] клиент отключился id=%s"},
+	"❌ 没找到 cloudflared。Mac 运行: brew install cloudflared ；Windows 把 cloudflared.exe 放到本程序同一目录": {"❌ cloudflared not found. Mac: brew install cloudflared; Windows: put cloudflared.exe next to this program", "❌ 找不到 cloudflared。Mac 執行: brew install cloudflared；Windows 把 cloudflared.exe 放到本程式同一資料夾", "❌ cloudflared が見つかりません。Mac: brew install cloudflared / Windows: cloudflared.exe をこのプログラムと同じフォルダに置いてください", "❌ cloudflared를 찾을 수 없습니다. Mac: brew install cloudflared / Windows: cloudflared.exe를 이 프로그램과 같은 폴더에 두세요", "❌ No se encuentra cloudflared. Mac: brew install cloudflared; Windows: coloca cloudflared.exe junto a este programa", "❌ cloudflared introuvable. Mac : brew install cloudflared ; Windows : placez cloudflared.exe à côté de ce programme", "❌ cloudflared nicht gefunden. Mac: brew install cloudflared; Windows: cloudflared.exe neben dieses Programm legen", "❌ cloudflared não encontrado. Mac: brew install cloudflared; Windows: coloque cloudflared.exe junto deste programa", "❌ cloudflared не найден. Mac: brew install cloudflared; Windows: положите cloudflared.exe рядом с программой"},
+	"隧道断开，5 秒后重开…":          {"Tunnel closed; reopening in 5 s…", "通道中斷，5 秒後重開…", "トンネルが切れました。5 秒後に再接続…", "터널 끊김, 5초 후 다시 열기…", "Túnel cerrado; se reabre en 5 s…", "Tunnel fermé ; réouverture dans 5 s…", "Tunnel geschlossen; neu in 5 s…", "Túnel fechado; reabrindo em 5 s…", "Туннель закрыт; повтор через 5 с…"},
+	"启动 cloudflared 失败: %v": {"Failed to start cloudflared: %v", "啟動 cloudflared 失敗: %v", "cloudflared の起動に失敗: %v", "cloudflared 시작 실패: %v", "No se pudo iniciar cloudflared: %v", "Échec du démarrage de cloudflared : %v", "cloudflared-Start fehlgeschlagen: %v", "Falha ao iniciar o cloudflared: %v", "Не удалось запустить cloudflared: %v"},
+}

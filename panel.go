@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -37,7 +38,8 @@ func registerPanel(mux *http.ServeMux) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
 		json.NewEncoder(w).Encode(map[string]any{
-			"addr": panel.Addr, "mode": panel.Mode, "id": cfg.ID, "password": cfg.Password,
+			"addr": L(panel.Addr), "mode": panel.Mode, "id": cfg.ID, "password": cfg.Password,
+			"lang": langCode(), "os": runtime.GOOS,
 			"version": version, "screen": screen, "access": access,
 			"tsIP": tailscaleIP(), "tsInstalled": appErr == nil || tailscaleBin() != "",
 		})

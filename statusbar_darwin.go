@@ -86,34 +86,34 @@ func goMenuWillOpen() {
 		if h := strings.LastIndex(ip, ":"); h > 0 {
 			ip = strings.Trim(ip[:h], "[]")
 		}
-		setItem(tagStatus, "● 手机已连接（"+ip+"）", false, false, false)
+		setItem(tagStatus, fmt.Sprintf(L("● 控制端已连接（%s）"), ip), false, false, false)
 	} else {
-		setItem(tagStatus, "RDesk Host "+version+" · 等待手机连接", false, false, false)
+		setItem(tagStatus, fmt.Sprintf(L("RDesk Host %s · 等待控制端连接"), version), false, false, false)
 	}
-	setItem(tagAddr, "地址　　"+panel.Addr+"　（点击复制）", true, false, false)
-	setItem(tagID, "设备 ID　"+cfg.ID+"　（点击复制）", true, false, false)
-	setItem(tagPassword, "密码　　••••••••　（点击复制，按住 ⌥ 显示）", true, false, false)
-	setItem(tagPasswordShown, "密码　　"+cfg.Password+"　（点击复制）", true, false, false)
-	setItem(tagCopyAll, "复制全部连接信息", true, false, false)
+	setItem(tagAddr, fmt.Sprintf(L("地址　　%s　（点击复制）"), L(panel.Addr)), true, false, false)
+	setItem(tagID, fmt.Sprintf(L("设备 ID　%s　（点击复制）"), cfg.ID), true, false, false)
+	setItem(tagPassword, L("密码　　••••••••　（点击复制，按住 ⌥ 显示）"), true, false, false)
+	setItem(tagPasswordShown, fmt.Sprintf(L("密码　　%s　（点击复制）"), cfg.Password), true, false, false)
+	setItem(tagCopyAll, L("复制全部连接信息"), true, false, false)
 
 	if ts := tailscaleIP(); ts != "" {
-		setItem(tagTailscale, "✓ Tailscale 已连接（"+ts+"）", false, false, false)
+		setItem(tagTailscale, fmt.Sprintf(L("✓ Tailscale 已连接（%s）"), ts), false, false, false)
 	} else {
-		setItem(tagTailscale, "⚠️ Tailscale 没连接 — 点击下载或打开", true, false, false)
+		setItem(tagTailscale, L("⚠️ Tailscale 没连接 — 点击下载或打开"), true, false, false)
 	}
 	screen, access := permStatus()
 	switch {
 	case !screen:
-		setItem(tagPerms, "⚠️ 缺少「屏幕录制」权限 — 点击去设置", true, false, false)
+		setItem(tagPerms, L("⚠️ 缺少「屏幕录制」权限 — 点击去设置"), true, false, false)
 	case !access:
-		setItem(tagPerms, "⚠️ 缺少「辅助功能」权限（只能看不能控）— 点击去设置", true, false, false)
+		setItem(tagPerms, L("⚠️ 缺少「辅助功能」权限（只能看不能控）— 点击去设置"), true, false, false)
 	default:
-		setItem(tagPerms, "✓ 屏幕录制、辅助功能权限正常", false, false, false)
+		setItem(tagPerms, L("✓ 屏幕录制、辅助功能权限正常"), false, false, false)
 	}
-	setItem(tagPanel, "打开控制面板…", diagURL != "", false, false)
-	setItem(tagNewPassword, "换新密码…", true, false, false)
-	setItem(tagLogin, "登录时自动启动", true, C.rdLoginItem() == 1, C.rdIsBundle() == 0)
-	setItem(tagQuit, "退出 RDesk Host", true, false, false)
+	setItem(tagPanel, L("打开控制面板…"), diagURL != "", false, false)
+	setItem(tagNewPassword, L("换新密码…"), true, false, false)
+	setItem(tagLogin, L("登录时自动启动"), true, C.rdLoginItem() == 1, C.rdIsBundle() == 0)
+	setItem(tagQuit, L("退出 RDesk Host"), true, false, false)
 }
 
 //export goMenuAction
@@ -127,7 +127,7 @@ func goMenuAction(tag C.int) {
 	case tagPassword, tagPasswordShown:
 		copyText(cfg.Password)
 	case tagCopyAll:
-		copyText(fmt.Sprintf("地址：%s\n设备 ID：%s\n密码：%s", panel.Addr, cfg.ID, cfg.Password))
+		copyText(fmt.Sprintf(L("地址：%s\n设备 ID：%s\n密码：%s"), panel.Addr, cfg.ID, cfg.Password))
 	case tagTailscale:
 		if _, err := os.Stat("/Applications/Tailscale.app"); err == nil {
 			openURL("file:///Applications/Tailscale.app")
@@ -144,10 +144,10 @@ func goMenuAction(tag C.int) {
 	case tagPanel:
 		openURL(diagURL)
 	case tagNewPassword:
-		if confirm("换一个新密码？", "正在连接的手机会断开，需要用新密码重新连接。", "换新密码") {
+		if confirm(L("换一个新密码？"), L("正在连接的控制端会断开，需要用新密码重新连接。"), L("换新密码")) {
 			if pw, err := newPassword(); err == nil {
 				copyText(pw)
-				confirm("新密码已复制", "新密码："+pw+"\n已复制到剪贴板。", "好")
+				confirm(L("新密码已复制"), fmt.Sprintf(L("新密码：%s\n已复制到剪贴板。"), pw), L("好"))
 			}
 		}
 	case tagLogin:
