@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const version = "0.1.1"
+const version = "0.1.2"
 
 func usage() {
 	fmt.Print(`rdesk ` + version + ` —— 走隧道的远程桌面（类 RustDesk）

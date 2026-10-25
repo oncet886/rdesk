@@ -152,6 +152,9 @@ static int createEncoder(int w, int h) {
 	if (VTSessionSetProperty(gEnc, kVTCompressionPropertyKey_ProfileLevel, kVTProfileLevel_H264_ConstrainedHigh_AutoLevel) != noErr)
 		VTSessionSetProperty(gEnc, kVTCompressionPropertyKey_ProfileLevel, kVTProfileLevel_H264_Main_AutoLevel);
 	VTSessionSetProperty(gEnc, kVTCompressionPropertyKey_AllowFrameReordering, kCFBooleanFalse);
+	// 只参考前 1 帧、不延迟出帧：码流里声明的解码缓冲就是 1，安卓（高通/三星）解码器就不会扣着帧不显示
+	VTSessionSetProperty(gEnc, kVTCompressionPropertyKey_MaxFrameDelayCount, (__bridge CFNumberRef)@0);
+	if (@available(macOS 13.0, *)) VTSessionSetProperty(gEnc, kVTCompressionPropertyKey_ReferenceBufferCount, (__bridge CFNumberRef)@1);
 	VTSessionSetProperty(gEnc, kVTCompressionPropertyKey_AverageBitRate, (__bridge CFNumberRef)@(gKbps * 1000));
 	VTSessionSetProperty(gEnc, kVTCompressionPropertyKey_ExpectedFrameRate, (__bridge CFNumberRef)@(gFps));
 	VTSessionSetProperty(gEnc, kVTCompressionPropertyKey_MaxKeyFrameInterval, (__bridge CFNumberRef)@(gFps * 120));
