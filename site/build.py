@@ -112,7 +112,7 @@ def downloads(lang):
     if zh:
         hosts = (platform("Mac 被控端 · RDesk Host", "macOS 14 及以上，Apple 芯片和 Intel 通用。开源免费，已通过 Apple 公证。", "可下载", GH_LATEST, "免费下载", ok=True)
                  + platform("Windows 被控端", "Windows 10 / 11（x64 和 ARM64）。测试版，暂未数字签名，第一次运行需在提示里点「仍要运行」。", "测试版", GH_LATEST, "免费下载", ok=True))
-        ctrls = ios + android + platform("Mac 控制端", "macOS 14 及以上。在 Mac 上控制另一台电脑，键盘鼠标直接转发，连 Windows 时 ⌘ 自动当 Ctrl。", "测试版", GH_LATEST, "免费下载", ok=True) + platform("Windows 控制端", "在 Windows 上控制另一台电脑。", soon)
+        ctrls = ios + android + platform("Mac 控制端", "macOS 14 及以上。在 Mac 上控制另一台电脑，键盘鼠标直接转发，连 Windows 时 ⌘ 自动当 Ctrl。", "测试版", GH_LATEST, "免费下载", ok=True) + platform("Windows 控制端", "Windows 10 / 11（x64 和 ARM64）。双击打开独立窗口，可控制 Mac 和 Windows，连 Mac 时 Ctrl 自动当 ⌘。测试版，暂未数字签名。", "测试版", GH_LATEST, "免费下载", ok=True)
         return f"""<section class="app-section" id="download"><div class="container">
   <p class="eyebrow">下载</p><h2>被控端装在要被控制的电脑上，<em>控制端装在你手上的设备。</em></h2>
   <p class="role">被控端 · 要被控制的电脑</p><div class="platforms">{hosts}</div>
@@ -120,7 +120,7 @@ def downloads(lang):
 </div></section>"""
     hosts = (platform("Mac host · RDesk Host", "macOS 14 or later, Apple silicon and Intel. Free, open source and notarized by Apple.", "Available", GH_LATEST, "Free download", ok=True)
              + platform("Windows host", "Windows 10 / 11 (x64 and ARM64). Beta, not code-signed yet: choose \"Run anyway\" on first launch.", "Beta", GH_LATEST, "Free download", ok=True))
-    ctrls = ios + android + platform("Mac viewer", "macOS 14 or later. Control another computer with your own keyboard and mouse; ⌘ maps to Ctrl on Windows.", "Beta", GH_LATEST, "Free download", ok=True) + platform("Windows viewer", "Control another computer from Windows.", soon)
+    ctrls = ios + android + platform("Mac viewer", "macOS 14 or later. Control another computer with your own keyboard and mouse; ⌘ maps to Ctrl on Windows.", "Beta", GH_LATEST, "Free download", ok=True) + platform("Windows viewer", "Windows 10 / 11 (x64 and ARM64). Opens its own window and controls Macs and PCs; Ctrl acts as ⌘ on a Mac. Beta, not code-signed yet.", "Beta", GH_LATEST, "Free download", ok=True)
     return f"""<section class="app-section" id="download"><div class="container">
   <p class="eyebrow">Download</p><h2>Install the host on the computer you control, <em>the app on the device in your hand.</em></h2>
   <p class="role">HOST · THE COMPUTER BEING CONTROLLED</p><div class="platforms">{hosts}</div>
@@ -136,7 +136,7 @@ ZH = f"""<section class="app-hero"><div class="container app-hero-grid">
   <div class="app-hero-media phone"><div class="device-phone"><img src="/assets/rdesk-iphone-start.jpg" width="900" height="1957" alt="iPhone 上的 RDesk 远控：Tailscale 已连接、三步开始，以及地址、设备 ID、密码输入框" fetchpriority="high"></div></div>
 </div></section>
 <section class="section-tight hairline"><div class="container"><dl class="facts app-facts">
-  <div><dt>控制端</dt><dd>iPhone / iPad、安卓、Mac；Windows 开发中</dd></div>
+  <div><dt>控制端</dt><dd>iPhone / iPad、安卓、Mac、Windows</dd></div>
   <div><dt>被控端</dt><dd>Mac（macOS 14+）、Windows 10 / 11</dd></div>
   <div><dt>连接</dt><dd>Tailscale 点对点直连，不经过中转</dd></div>
   <div><dt>价格</dt><dd>免费，没有账号、没有广告</dd></div>
@@ -173,7 +173,7 @@ EN = f"""<section class="app-hero"><div class="container app-hero-grid">
   <div class="app-hero-media phone"><div class="device-phone"><img src="/assets/rdesk-iphone-start.jpg" width="900" height="1957" alt="RDesk on iPhone: Tailscale connected, three setup steps, and fields for address, device ID and password" fetchpriority="high"></div></div>
 </div></section>
 <section class="section-tight hairline"><div class="container"><dl class="facts app-facts">
-  <div><dt>Viewer</dt><dd>iPhone / iPad, Android, Mac; Windows coming</dd></div>
+  <div><dt>Viewer</dt><dd>iPhone / iPad, Android, Mac, Windows</dd></div>
   <div><dt>Host</dt><dd>Mac (macOS 14+), Windows 10 / 11</dd></div>
   <div><dt>Connection</dt><dd>Peer to peer over Tailscale, no relay</dd></div>
   <div><dt>Price</dt><dd>Free. No accounts, no ads</dd></div>
