@@ -177,3 +177,46 @@ func TestVectors(t *testing.T) {
 	ct := b.seal([]byte("hello rdesk"), aadH2V)
 	fmt.Printf("KEY=%x\nCT=%x\n", key, ct)
 }
+
+// 自适应码率：大帧传得久不算堵；真正排队（往返持续变长）才降码率
+func TestABR(t *testing.T) {
+	now := time.Unix(0, 0)
+	fc := &flowCtl{now: func() time.Time { return now }}
+	a := &abrCtl{fc: fc}
+	a.reset(6000)
+	seq := uint32(0)
+	// 发一帧：链路 8Mbps、基础往返 90ms、额外排队 extra
+	frame := func(bytes int, extra time.Duration) {
+		seq++
+		fc.sent(seq, bytes)
+		tx := time.Duration(float64(bytes*8) / 8e6 * float64(time.Second))
+		now = now.Add(90*time.Millisecond + tx + extra)
+		fc.ack(seq)
+		now = now.Add(50 * time.Millisecond)
+		a.tick()
+	}
+	// 1. 正常：小帧大帧混合（有 120KB 的大帧），网络不堵 → 码率应该往上涨，不能降
+	for i := 0; i < 80; i++ {
+		b := 3000
+		if i%5 == 0 {
+			b = 120000
+		}
+		frame(b, 0)
+	}
+	if a.kbps <= 3000 {
+		t.Fatalf("网络正常时码率没涨上去: %d", a.kbps)
+	}
+	t.Logf("正常网络（含大帧）码率涨到 %d kbps", a.kbps)
+	high := a.kbps
+	// 2. 真堵了：每帧额外排队 300ms → 必须降
+	for i := 0; i < 20; i++ {
+		frame(5000, 300*time.Millisecond)
+	}
+	if a.kbps >= high {
+		t.Fatalf("网络排队时没有降码率: %d", a.kbps)
+	}
+	t.Logf("排队 300ms 后码率降到 %d kbps", a.kbps)
+	if a.kbps < minKbps {
+		t.Fatalf("码率低于下限: %d", a.kbps)
+	}
+}

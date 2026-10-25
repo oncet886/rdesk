@@ -452,7 +452,7 @@ func (h *host) streamVideo(ctx context.Context, s *session) {
 			videoPause(false)
 		}
 		seq++
-		fc.sent(seq)
+		fc.sent(seq, len(data))
 		msg := make([]byte, 10, 10+len(data))
 		msg[0] = msgVideo
 		binary.BigEndian.PutUint32(msg[1:], seq)
@@ -787,37 +787,46 @@ func (h *host) cursorLoop(ctx context.Context, s *session) {
 }
 
 // 基于延迟的流量控制
-type flowCtl struct {
-	unacked []struct {
-		seq uint32
-		t   time.Time
-	}
-	samples []struct {
-		t   time.Time
-		rtt time.Duration
-	}
+type sentFrame struct {
+	seq   uint32
+	t     time.Time
+	bytes int
 }
 
-func (f *flowCtl) sent(seq uint32) {
-	f.unacked = append(f.unacked, struct {
-		seq uint32
-		t   time.Time
-	}{seq, time.Now()})
+type rttSample struct {
+	t     time.Time
+	rtt   time.Duration
+	bytes int
+}
+
+type flowCtl struct {
+	unacked []sentFrame
+	samples []rttSample
+	now     func() time.Time // 测试时注入假时钟
+}
+
+func (f *flowCtl) clock() time.Time {
+	if f.now != nil {
+		return f.now()
+	}
+	return time.Now()
+}
+
+func (f *flowCtl) sent(seq uint32, bytes int) {
+	f.unacked = append(f.unacked, sentFrame{seq, f.clock(), bytes})
 }
 
 func (f *flowCtl) ack(seq uint32) {
+	now := f.clock()
 	for len(f.unacked) > 0 && (seq == 0 || f.unacked[0].seq <= seq) {
 		u := f.unacked[0]
 		f.unacked = f.unacked[1:]
 		if seq == 0 || u.seq == seq {
-			f.samples = append(f.samples, struct {
-				t   time.Time
-				rtt time.Duration
-			}{time.Now(), time.Since(u.t)})
+			f.samples = append(f.samples, rttSample{now, now.Sub(u.t), u.bytes})
 			break
 		}
 	}
-	cut := time.Now().Add(-10 * time.Second)
+	cut := now.Add(-10 * time.Second)
 	for len(f.samples) > 0 && f.samples[0].t.Before(cut) {
 		f.samples = f.samples[1:]
 	}
@@ -853,13 +862,32 @@ func (f *flowCtl) canSend() bool {
 	if len(f.unacked) >= 60 {
 		return false
 	}
-	return time.Since(f.unacked[0].t) < f.minRTT()+150*time.Millisecond
+	return f.clock().Sub(f.unacked[0].t) < f.minRTT()+150*time.Millisecond
 }
 
 func (f *flowCtl) reset() { f.unacked = nil }
 
-// 自适应码率（类似 RustDesk / WebRTC）：网络开始排队（帧往返比最小往返多 100ms 以上，或被迫暂停）
-// 就立刻降到 0.7 倍；连续 2 秒顺畅再慢慢往上加，最高不超过画质档位的上限。宁可稍糊也不卡。
+// 排队延迟：每帧往返 − 最小往返 − 按当前码率传完这帧本来就要的时间（大帧传得久不算堵）。
+// 取最近 1 秒的中位数；样本不到 3 个时不下结论（画面静止、帧很稀时不乱调码率）。
+func (f *flowCtl) queueDelay(kbps int) (time.Duration, bool) {
+	cut := f.clock().Add(-time.Second)
+	base := f.minRTT()
+	var q []time.Duration
+	for _, x := range f.samples {
+		if x.t.After(cut) {
+			tx := time.Duration(float64(x.bytes*8) / float64(max(kbps, 1)*1000) * float64(time.Second))
+			q = append(q, x.rtt-base-tx)
+		}
+	}
+	if len(q) < 3 {
+		return 0, false
+	}
+	sort.Slice(q, func(i, j int) bool { return q[i] < q[j] })
+	return q[len(q)/2], true
+}
+
+// 自适应码率（类似 RustDesk / WebRTC）：网络开始排队（扣掉传输时间后仍多出 120ms 以上，或被迫暂停）
+// 就降到 0.75 倍；连续 2 秒顺畅再往上加，最高不超过画质档位的上限。宁可稍糊也不卡。
 type abrCtl struct {
 	fc            *flowCtl
 	kbps, maxKbps int
@@ -867,26 +895,29 @@ type abrCtl struct {
 	last, goodAt  time.Time
 }
 
+const minKbps = 800
+
 func (a *abrCtl) reset(max int) {
 	a.maxKbps = max
 	a.kbps = min(max, 3000) // 从保守值起步，网络好再往上加
-	a.last, a.goodAt = time.Now(), time.Now()
+	a.last, a.goodAt = a.fc.clock(), a.fc.clock()
 	diag.setKbps(a.kbps)
 }
 
 func (a *abrCtl) tick() {
-	if time.Since(a.last) < 500*time.Millisecond {
+	now := a.fc.clock()
+	if now.Sub(a.last) < 500*time.Millisecond {
 		return
 	}
-	a.last = time.Now()
-	queue := a.fc.recentRTT() - a.fc.minRTT()
+	a.last = now
+	q, ok := a.fc.queueDelay(a.kbps)
 	nk := a.kbps
 	switch {
-	case a.paused > 0 || queue > 100*time.Millisecond:
-		nk = max(600, a.kbps*7/10)
-		a.goodAt = time.Now()
-	case queue < 40*time.Millisecond && time.Since(a.goodAt) > 2*time.Second:
-		nk = min(a.maxKbps, a.kbps*11/10+150)
+	case a.paused > 0 || (ok && q > 120*time.Millisecond):
+		nk = max(minKbps, a.kbps*3/4)
+		a.goodAt = now
+	case ok && q < 40*time.Millisecond && now.Sub(a.goodAt) > 2*time.Second:
+		nk = min(a.maxKbps, a.kbps*115/100+200)
 	}
 	a.paused = 0
 	if nk != a.kbps {
@@ -894,26 +925,6 @@ func (a *abrCtl) tick() {
 		videoSetBitrate(nk)
 		diag.setKbps(nk)
 	}
-}
-
-// 最近 1 秒帧往返的中位数
-func (f *flowCtl) recentRTT() time.Duration {
-	cut := time.Now().Add(-time.Second)
-	var r []time.Duration
-	for _, x := range f.samples {
-		if x.t.After(cut) {
-			r = append(r, x.rtt)
-		}
-	}
-	if len(r) == 0 {
-		// 没有新确认：看最早那帧已经等了多久
-		if len(f.unacked) > 0 {
-			return time.Since(f.unacked[0].t)
-		}
-		return f.minRTT()
-	}
-	sort.Slice(r, func(i, j int) bool { return r[i] < r[j] })
-	return r[len(r)/2]
 }
 
 // 系统声音：编码好的 AAC 包直接发；控制端关了声音就丢掉（不占流量）
