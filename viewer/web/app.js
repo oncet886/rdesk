@@ -193,11 +193,11 @@ class Session {
     const seq = v.getUint32(1), w = v.getUint16(5), h = v.getUint16(7), key = p[9] === 1, data = p.subarray(10);
     if (!this.decoder || this.decoder.state === "closed") this.makeDecoder();
     if (this.decoder.state !== "configured") {
-      if (!key) return this.ack(seq); // 等关键帧
+      this.ack(seq);
+      if (!key || this.configuring) return; // 等关键帧 / 正在配置
       const sps = nal(data, 7);
-      if (!sps) return this.ack(seq);
-      const hex = (x) => x.toString(16).padStart(2, "0");
-      this.decoder.configure({ codec: `avc1.${hex(sps[1])}${hex(sps[2])}${hex(sps[3])}`, optimizeForLatency: true, hardwareAcceleration: "prefer-hardware" });
+      if (sps) this.configure(sps);
+      return;
     }
     if (this.decoder.decodeQueueSize > 8) { // 解码跟不上：丢掉重来，要关键帧
       this.dropped++; this.ack(seq); this.decoder.reset(); this.msg(M.KEYREQ); return;
@@ -206,6 +206,22 @@ class Session {
     this.t0[seq % 64] = performance.now();
     try { this.decoder.decode(new EncodedVideoChunk({ type: key ? "key" : "delta", timestamp: seq, data })); }
     catch { this.ack(seq); this.decoder.reset(); this.msg(M.KEYREQ); }
+  }
+  // 先问浏览器支不支持硬件解码，不支持（比如虚拟机里没有显卡解码）就用软件解码
+  async configure(sps) {
+    this.configuring = true;
+    const hex = (x) => x.toString(16).padStart(2, "0");
+    const base = { codec: `avc1.${hex(sps[1])}${hex(sps[2])}${hex(sps[3])}`, optimizeForLatency: true };
+    let cfg = { ...base, hardwareAcceleration: "prefer-hardware" };
+    try { if (!(await VideoDecoder.isConfigSupported(cfg)).supported) cfg = base; } catch { cfg = base; }
+    try {
+      if (!(await VideoDecoder.isConfigSupported(cfg)).supported) throw new Error(base.codec + " not supported");
+      if (!this.decoder || this.decoder.state === "closed") this.makeDecoder();
+      this.decoder.configure(cfg);
+      this.hw = cfg.hardwareAcceleration ? "硬件解码" : "软件解码";
+    } catch (e) { $("#waiting span").textContent = T.errCodec + " (" + e.message + ")"; }
+    this.configuring = false;
+    this.msg(M.KEYREQ); // 配置好了：要一个新的关键帧
   }
   makeDecoder() {
     this.t0 = new Array(64).fill(0);
@@ -219,7 +235,7 @@ class Session {
         if (!this.gotFrame) { this.gotFrame = true; $("#waiting").hidden = true; }
         this.ack(seq); // 显示后再确认，被控端据此控制发送节奏
       },
-      error: () => { this.decoder = null; this.msg(M.KEYREQ); },
+      error: (e) => { this.decoder = null; $("#waiting span").textContent = "decoder: " + e.message; this.msg(M.KEYREQ); },
     });
   }
   ack(seq) { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, seq); this.msg(M.ACK, b); }
@@ -294,7 +310,7 @@ class Session {
     const b = new Uint8Array(8); new DataView(b.buffer).setFloat64(0, performance.now());
     this.msg(M.PING, b);
     const s = { fps: this.frames, rtt: Math.round(this.rtt), kbps: Math.round(this.bytes * 8 / 1000), decodeMs: Math.round(this.decodeMs * 10) / 10,
-      dropped: this.dropped, mode: "浏览器", orient: "窗口", device: navigator.userAgent.replace(/^.*?\((.*?)\).*$/, "$1").slice(0, 60),
+      dropped: this.dropped, mode: "浏览器 · " + (this.hw || "–"), orient: "窗口", device: navigator.userAgent.replace(/^.*?\((.*?)\).*$/, "$1").slice(0, 60),
       app: "web 0.1.0", net: "–", connect: "" };
     $("#stats").textContent = `${s.fps} fps · ${s.rtt} ms · ${s.kbps} kbps`;
     this.msg(M.STATS, enc.encode(JSON.stringify(s)));

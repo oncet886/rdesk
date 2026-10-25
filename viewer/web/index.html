@@ -34,8 +34,8 @@
       <h2 id="formTitle" data-t="connTo"></h2>
       <div class="card fields">
         <label><span data-t="address"></span><input id="server" spellcheck="false" autocapitalize="off" data-ph="addrPh"></label>
-        <label><span data-t="deviceId"></span><input id="devid" inputmode="numeric" spellcheck="false" data-ph="idPh"></label>
-        <label><span data-t="password"></span><input id="pw" type="password" spellcheck="false" data-ph="pwPh"></label>
+        <label><span data-t="deviceId"></span><input id="devid" inputmode="numeric" spellcheck="false" autocomplete="off" data-ph="idPh"></label>
+        <label><span data-t="password"></span><input id="pw" type="password" spellcheck="false" autocomplete="one-time-code" data-ph="pwPh"></label>
         <label class="check"><input id="remember" type="checkbox" checked><span data-t="remember"></span></label>
       </div>
       <button id="go" class="primary" type="submit" data-t="connect"></button>
