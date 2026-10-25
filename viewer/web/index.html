@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>RDesk</title>
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- 登录页 -->
+<main id="login">
+  <div class="card-col">
+    <header class="hero">
+      <img src="icon.png" width="76" height="76" alt="">
+      <h1 data-t="title"></h1>
+      <p class="sub" data-t="subtitle"></p>
+    </header>
+    <div id="error" class="banner" hidden></div>
+    <section id="devices" hidden>
+      <h2 data-t="myDevices"></h2>
+      <div id="deviceList"></div>
+    </section>
+    <section id="start" class="card">
+      <h3 data-t="steps"></h3>
+      <ol>
+        <li><span data-t="step1"></span><br><a href="https://rdeskapp.com/#download" target="_blank" rel="noopener" data-t="step1Link"></a></li>
+        <li><span data-t="step2"></span><br><a href="https://tailscale.com/download" target="_blank" rel="noopener" data-t="step2Link"></a></li>
+        <li><span data-t="step3"></span></li>
+      </ol>
+    </section>
+    <form id="form" autocomplete="off">
+      <h2 id="formTitle" data-t="connTo"></h2>
+      <div class="card fields">
+        <label><span data-t="address"></span><input id="server" spellcheck="false" autocapitalize="off" data-ph="addrPh"></label>
+        <label><span data-t="deviceId"></span><input id="devid" inputmode="numeric" spellcheck="false" data-ph="idPh"></label>
+        <label><span data-t="password"></span><input id="pw" type="password" spellcheck="false" data-ph="pwPh"></label>
+        <label class="check"><input id="remember" type="checkbox" checked><span data-t="remember"></span></label>
+      </div>
+      <button id="go" class="primary" type="submit" data-t="connect"></button>
+      <button id="cancel" class="link" type="button" data-t="cancel" hidden></button>
+    </form>
+    <footer class="foot">
+      <a href="https://rdeskapp.com/#download" target="_blank" rel="noopener" data-t="hostDl"></a>
+      <p>🔒 <span data-t="footer"></span></p>
+    </footer>
+  </div>
+</main>
+
+<!-- 远程画面 -->
+<div id="remote" hidden>
+  <div id="bar">
+    <div class="who"><b id="hostName"></b><span id="stats">–</span></div>
+    <div class="tools">
+      <button id="audioBtn" class="tool"></button>
+      <div class="menu">
+        <button class="tool" id="keysBtn" data-t="keys"></button>
+        <div class="pop" id="keysPop"></div>
+      </div>
+      <button class="tool" id="pasteBtn" data-t="paste"></button>
+      <select id="quality" class="tool" aria-label="quality"></select>
+      <select id="display" class="tool" aria-label="display" hidden></select>
+      <button class="tool" id="fsBtn" data-t="fullscreen"></button>
+      <button class="tool danger" id="byeBtn" data-t="disconnect"></button>
+    </div>
+  </div>
+  <div id="stage">
+    <canvas id="screen" tabindex="0"></canvas>
+    <div id="waiting"><div class="spinner"></div><span data-t="waiting"></span></div>
+  </div>
+  <div id="toast" hidden></div>
+</div>
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
