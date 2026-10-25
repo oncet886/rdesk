@@ -776,7 +776,8 @@ func (h *host) cursorLoop(ctx context.Context, s *session) {
 			nx = uint16((x - float64(b.Min.X)) / float64(b.Dx()-1) * 65535)
 			ny = uint16((y - float64(b.Min.Y)) / float64(b.Dy()-1) * 65535)
 		}
-		if nx == lx && ny == ly {
+		// 位置没变时也每秒重发一次：控制端那边的光标偏了（转屏、重建画面、被别的程序挪动）也能很快拉回来
+		if nx == lx && ny == ly && tick%60 != 0 {
 			continue
 		}
 		lx, ly = nx, ny

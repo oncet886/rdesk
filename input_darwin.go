@@ -69,11 +69,22 @@ static void cursorPos(double *x, double *y) {
 
 // 当前系统光标的样子（箭头 / 输入竖线 / 手形 / 拖拽 / 缩放箭头…）。没变化返回 0。
 static NSData *gLastCursorPNG = nil;
+// 光标图片几乎全透明 = 被程序隐藏了
+static int cursorInvisible(NSCursor *c) {
+	CGImageRef cg = [c.image CGImageForProposedRect:NULL context:nil hints:nil];
+	if (!cg) return 1;
+	NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithCGImage:cg];
+	NSInteger w = rep.pixelsWide, h = rep.pixelsHigh;
+	for (NSInteger y = 0; y < h; y += 2)
+		for (NSInteger x = 0; x < w; x += 2)
+			if ([rep colorAtX:x y:y].alphaComponent > 0.05) return 0;
+	return 1;
+}
 static void cursorShapeReset(void) { gLastCursorPNG = nil; }
 static int cursorShape(uint8_t **out, double *w, double *h, double *hx, double *hy) {
 	@autoreleasepool {
 		NSCursor *c = [NSCursor currentSystemCursor];
-		if (!c) return 0;
+		if (!c || cursorInvisible(c)) c = [NSCursor arrowCursor]; // 被程序藏起来的光标（如 VMware 捕获鼠标）：发普通箭头，手机上始终看得到
 		NSImage *img = c.image;
 		NSSize sz = img.size;
 		if (sz.width <= 0 || sz.height <= 0) return 0;
