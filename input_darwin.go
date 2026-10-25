@@ -373,10 +373,12 @@ func typeText(s string) {
 					C.postKey(0x38, 1, flags)
 				}
 				C.postKey(code, 1, flags)
+				time.Sleep(8 * time.Millisecond) // 虚拟机来不及处理太快的按键，连续相同的键（如 0000）会被吞掉
 				C.postKey(code, 0, flags)
 				if shift == 1 {
 					C.postKey(0x38, 0, 0)
 				}
+				time.Sleep(8 * time.Millisecond)
 			}
 			continue
 		}

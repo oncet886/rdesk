@@ -422,6 +422,8 @@ function showRemote(s) {
 function updateBar(s) {
   $("#audioBtn").textContent = s.audioOn ? "🔊 " + T.sound : "🔇 " + T.mute;
   $("#modeBtn").hidden = !COARSE;
+  $("#kbdBtn").hidden = !COARSE;
+  $("#kbdBtn").textContent = "⌨️ " + T.keyboard;
   $("#modeBtn").textContent = touchMode === "mouse" ? "🖱 " + T.modeMouse : "👆 " + T.modeTouch;
   placeCursor();
 }
@@ -472,7 +474,7 @@ canvas.addEventListener("pointermove", (e) => {
 });
 canvas.addEventListener("pointerdown", (e) => {
   if (!S?.connected) return;
-  canvas.focus();
+  if (document.activeElement !== kbd) canvas.focus(); // 手机键盘开着时点画面不收起键盘
   try { canvas.setPointerCapture(e.pointerId); } catch {}
   e.preventDefault();
   if (e.pointerType === "touch") return touchDown(e);
@@ -613,6 +615,8 @@ function tapUp(e, ok) {
   tc.done = true;
 }
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+// 触屏：阻止浏览器默认的触摸处理（点画面会让输入框失焦、收起手机键盘）；操作走上面的 pointer 事件
+canvas.addEventListener("touchstart", (e) => { if (S?.connected) e.preventDefault(); }, { passive: false });
 let wheelRest = [0, 0];
 canvas.addEventListener("wheel", (e) => {
   if (!S?.connected) return;
@@ -634,12 +638,47 @@ function mapCode(code) {
 }
 function onKey(e, down) {
   if (!S?.connected || $("#remote").hidden || !e.code) return;
+  if (e.target === kbd) return; // 手机软键盘：由下面的输入框处理
   if (e.target.closest && e.target.closest("#bar")) return;
   e.preventDefault();
   if (e.code === "CapsLock") { S.tap(["CapsLock"]); return; }
   if (down && e.repeat && !S.pressed.has(mapCode(e.code))) return;
   S.key(mapCode(e.code), down);
 }
+// 手机软键盘：隐藏的输入框接文字（中文输入法确认上屏后才发）。框里先放两个空格，
+// 这样空框里按退格也能被识别；每次处理完再放回去
+const kbd = $("#kbd"), KBD_FILL = "  ";
+let kbdComposing = false;
+function kbdReset() { kbd.value = KBD_FILL; try { kbd.setSelectionRange(KBD_FILL.length, KBD_FILL.length); } catch {} }
+$("#kbdBtn").onclick = () => {
+  if (document.activeElement === kbd) { kbd.blur(); return; }
+  kbdReset(); kbd.focus();
+};
+kbd.addEventListener("compositionstart", () => { kbdComposing = true; });
+kbd.addEventListener("compositionend", (e) => { kbdComposing = false; if (e.data) S?.text(e.data); kbdReset(); });
+kbd.addEventListener("input", (e) => {
+  if (!S?.connected || kbdComposing || e.isComposing) return;
+  const v = kbd.value;
+  if (e.inputType === "insertLineBreak" || e.inputType === "insertParagraph" || v.endsWith("\n")) S.tap(["Enter"]);
+  else if (e.inputType === "deleteContentBackward" || v.length < KBD_FILL.length) S.tap(["Backspace"]);
+  else if (v.startsWith(KBD_FILL) && v.length > KBD_FILL.length) S.text(v.slice(KBD_FILL.length));
+  else if (e.data) S.text(e.data);
+  kbdReset();
+});
+
+// 键盘弹出时浏览器可见区域变矮：远程画面跟着缩到键盘上方，不被挡住
+function fitViewport() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const r = $("#remote");
+  r.style.height = vv.height + "px";
+  r.style.top = vv.offsetTop + "px";
+  r.style.bottom = "auto";
+  placeCursor();
+}
+window.visualViewport?.addEventListener("resize", fitViewport);
+window.visualViewport?.addEventListener("scroll", fitViewport);
+
 window.addEventListener("keydown", (e) => onKey(e, true));
 window.addEventListener("keyup", (e) => onKey(e, false));
 window.addEventListener("blur", () => S?.releaseAll());
