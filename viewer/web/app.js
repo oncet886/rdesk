@@ -528,8 +528,9 @@ function placeCursor() {
 }
 addEventListener("resize", placeCursor);
 
-// 鼠标模式：单指滑 = 移光标；轻点 = 左键；按住 0.4 秒再拖 = 拖拽；双指轻点 = 右键；双指滑 = 滚动
-const mm = { fingers: new Map(), id: null, sx: 0, sy: 0, lx: 0, ly: 0, t: 0, moved: false, timer: 0, dragging: false, two: 0, twoMoved: false, movedAt: 0, wx: 0, wy: 0 };
+// 鼠标模式：单指滑 = 移光标；轻点 = 左键；长按或双指轻点 = 右键；点一下再按住滑 = 拖拽（选文字）；双指滑 = 滚动
+const mm = { fingers: new Map(), id: null, sx: 0, sy: 0, lx: 0, ly: 0, t: 0, moved: false, timer: 0, dragging: false, two: 0, twoMoved: false, movedAt: 0, wx: 0, wy: 0,
+  tapAt: 0, tapX: 0, tapY: 0, armed: false, longDone: false };
 function mouseDown(e) {
   mm.fingers.set(e.pointerId, [e.clientX, e.clientY]);
   if (mm.fingers.size === 2) {
@@ -539,11 +540,15 @@ function mouseDown(e) {
     return;
   }
   if (mm.fingers.size > 2) return;
-  mm.id = e.pointerId; mm.sx = mm.lx = e.clientX; mm.sy = mm.ly = e.clientY; mm.t = performance.now(); mm.moved = false; mm.two = 0;
-  mm.timer = setTimeout(() => { // 按住不动：进入拖拽（左键按下不放）
+  mm.id = e.pointerId; mm.sx = mm.lx = e.clientX; mm.sy = mm.ly = e.clientY; mm.t = performance.now(); mm.moved = false; mm.two = 0; mm.longDone = false;
+  // 紧接着上一次轻点又按下：准备拖拽（滑动就按住左键拖）
+  mm.armed = mm.t - mm.tapAt < 300 && Math.hypot(e.clientX - mm.tapX, e.clientY - mm.tapY) < 40;
+  if (!mm.armed) mm.timer = setTimeout(() => { // 长按不动 = 右键
     if (mm.moved || mm.two) return;
-    mm.dragging = true; S.button(0, true, S.cx, S.cy); navigator.vibrate?.(15);
-  }, 400);
+    mm.longDone = true;
+    const cx = Math.round(S.cx), cy = Math.round(S.cy);
+    S.button(2, true, cx, cy); S.button(2, false, cx, cy); navigator.vibrate?.(15);
+  }, 500);
 }
 function mouseMove(e) {
   const prev = mm.fingers.get(e.pointerId);
@@ -562,7 +567,10 @@ function mouseMove(e) {
   const dx = e.clientX - mm.lx, dy = e.clientY - mm.ly;
   mm.lx = e.clientX; mm.ly = e.clientY;
   if (!mm.moved && Math.hypot(e.clientX - mm.sx, e.clientY - mm.sy) < 8) return;
-  if (!mm.moved) { mm.moved = true; if (!mm.dragging) clearTimeout(mm.timer); }
+  if (!mm.moved) {
+    mm.moved = true; clearTimeout(mm.timer);
+    if (mm.armed) { mm.dragging = true; S.button(0, true, Math.round(S.cx), Math.round(S.cy)); navigator.vibrate?.(10); }
+  }
   // 手指移动换算成光标移动：按画面实际显示的大小，1.5 倍速，快划再加速（横竖速度一致）
   const r = canvas.getBoundingClientRect(), W = canvas.width || 1, H = canvas.height || 1;
   const sc = Math.min(r.width / W, r.height / H), gain = 1.5 * (Math.hypot(dx, dy) > 12 ? 1.8 : 1);
@@ -585,7 +593,11 @@ function mouseUp(e, ok) {
   clearTimeout(mm.timer);
   const cx = Math.round(S.cx), cy = Math.round(S.cy);
   if (mm.dragging) { S.move(cx, cy); S.button(0, false, cx, cy); mm.dragging = false; }
-  else if (ok && !mm.moved && performance.now() - mm.t < 400) { S.button(0, true, cx, cy); S.button(0, false, cx, cy); }
+  else if (ok && !mm.moved && !mm.longDone) {
+    S.button(0, true, cx, cy); S.button(0, false, cx, cy);
+    mm.tapAt = performance.now(); mm.tapX = e.clientX; mm.tapY = e.clientY; // 连点两下 = 双击（选中一个词）
+  }
+  mm.armed = false;
   mm.id = null;
 }
 
