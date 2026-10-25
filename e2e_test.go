@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/pbkdf2"
+	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -162,4 +165,15 @@ func TestRelayReplaceSameIP(t *testing.T) {
 	if m := read(hostC); !strings.Contains(m, `"close"`) {
 		t.Fatalf("B 断开时被控端应收到 close: %s", m)
 	}
+}
+
+// 生成给安卓端对照用的测试向量
+func TestVectors(t *testing.T) {
+	if os.Getenv("RDESK_VEC") == "" {
+		t.Skip()
+	}
+	key, _ := pbkdf2.Key(sha256.New, "测试pw1", []byte("rdesk:123456789"), kdfIter, 32)
+	b, _ := newBox("测试pw1", "123456789")
+	ct := b.seal([]byte("hello rdesk"), aadH2V)
+	fmt.Printf("KEY=%x\nCT=%x\n", key, ct)
 }

@@ -20,7 +20,7 @@ RDesk 是一个类似 RustDesk 的远程桌面。这个仓库是 **Mac 被控端
 ## 安装和使用
 
 1. 在 [Releases](https://github.com/oncet886/rdesk/releases/latest) 下载 `RDesk-Host-macOS-v*.zip`，解压后把 **RDesk Host** 拖进「应用程序」。
-2. 第一次打开：**右键点 RDesk Host → 打开**（还没有 Apple 公证，直接双击会被系统拦下）。
+2. 双击打开（已通过 Apple 公证）。
 3. 浏览器会自动打开控制面板，显示**远程地址、设备 ID、密码**。
 4. 按提示在 系统设置 → 隐私与安全性 里打开「屏幕录制」和「辅助功能」（控制面板上有直达链接）。
 5. 在 iPhone 上打开 Tailscale，再打开「RDesk 远控」，填入地址、ID、密码，点连接。
@@ -40,7 +40,7 @@ rdesk -h                    # 全部参数
 
 ```bash
 go build -o rdesk .            # 需要 Go 1.24+ 和 Xcode 命令行工具
-zsh scripts/package-mac.sh     # 打包通用版 RDesk Host.app 到 dist/
+zsh scripts/package-mac.sh     # 打包通用版 RDesk Host.app 到 dist/（有签名环境时自动签名+公证）
 ```
 
 ## 安全说明
@@ -67,6 +67,6 @@ MIT © GPH Digital LLC
 
 **Requirements:** macOS 14+, Tailscale on both the Mac and the iPhone (same account), the RDesk iPhone app.
 
-**Install:** download `RDesk-Host-macOS-v*.zip` from [Releases](https://github.com/oncet886/rdesk/releases/latest), move **RDesk Host** to Applications, **right-click → Open** the first time (not notarized yet). A control panel opens in your browser with the address, device ID and password. Grant Screen Recording and Accessibility, then connect from the iPhone app.
+**Install:** download `RDesk-Host-macOS-v*.zip` from [Releases](https://github.com/oncet886/rdesk/releases/latest), move **RDesk Host** to Applications and open it (signed and notarized by Apple). A control panel opens in your browser with the address, device ID and password. Grant Screen Recording and Accessibility, then connect from the iPhone app.
 
 License: MIT.

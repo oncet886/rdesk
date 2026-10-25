@@ -1,5 +1,6 @@
 # iOS 主控端代码与内部资料不在本仓库
 ios/
+android/
 bin/
 dist/
 *.log
