@@ -74,7 +74,7 @@ func webSnapshot() webInfo {
 	defer web.mu.Unlock()
 	w := webInfo{CertErr: web.certErr, ShareBusy: web.shareBusy, ShareErr: web.shareErr, CanShare: web.local != ""}
 	if web.tlsAddr != "" {
-		w.Link = viewerLink(web.tlsAddr)
+		w.Link = "https://" + web.tlsAddr + "/#id=" + url.QueryEscape(loadConfig().ID) // 被控端自己提供网页版
 	}
 	if web.shareURL != "" {
 		w.Share = viewerLink(strings.TrimPrefix(web.shareURL, "https://"))
@@ -129,7 +129,7 @@ func certLoop(port int) {
 			web.mu.Unlock()
 			if announced != addr {
 				announced = addr
-				log.Printf(L("🌐 浏览器连接：%s"), viewerLink(addr))
+				log.Printf(L("🌐 浏览器连接：%s"), "https://"+addr+"/#id="+url.QueryEscape(loadConfig().ID))
 			}
 		}
 		time.Sleep(wait)

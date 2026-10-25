@@ -53,6 +53,7 @@
   <div id="bar">
     <div class="who"><b id="hostName"></b><span id="stats">–</span></div>
     <div class="tools">
+      <button id="modeBtn" class="tool" hidden></button>
       <button id="audioBtn" class="tool"></button>
       <div class="menu">
         <button class="tool" id="keysBtn" data-t="keys"></button>
@@ -67,6 +68,7 @@
   </div>
   <div id="stage">
     <canvas id="screen" tabindex="0"></canvas>
+    <img id="rcursor" alt="" hidden>
     <div id="waiting"><div class="spinner"></div><span data-t="waiting"></span></div>
   </div>
   <div id="toast" hidden></div>

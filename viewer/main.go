@@ -30,7 +30,7 @@ import (
 //go:embed web
 var webFS embed.FS
 
-const version = "0.1.1"
+const version = "0.1.2"
 
 var (
 	token    string       // 本次运行的随机令牌：别的网页拿不到，也就借用不了这个转发

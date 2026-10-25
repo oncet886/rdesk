@@ -13,7 +13,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-//go:embed web
+// 网页版控制端（和 rdeskapp.com/web、电脑控制端是同一套文件）。浏览器打开 https://电脑名.ts.net:端口/ 就能用：
+// 网页和连接同源，Chrome 不会弹「本地网络访问」权限框
+//
+//go:embed viewer/web
 var webFS embed.FS
 
 // 中继（隧道）服务器：被控端和控制端都主动"连出去"到这里，
@@ -68,7 +71,7 @@ func newRelay(key string) *relay {
 
 func (r *relay) handler() http.Handler {
 	mux := http.NewServeMux()
-	sub, _ := fs.Sub(webFS, "web")
+	sub, _ := fs.Sub(webFS, "viewer/web")
 	mux.Handle("/", http.FileServer(http.FS(sub)))
 	mux.HandleFunc("/ws/host", r.serveHost)
 	mux.HandleFunc("/ws/view", r.serveView)

@@ -62,8 +62,10 @@ if (last) { $("#server").value = last.server; $("#devid").value = last.id; $("#p
 // 被控端给的链接：rdeskapp.com/web/#s=地址&id=设备ID（# 后面的内容不会发给网站；密码不放在链接里）
 {
   const h = new URLSearchParams(location.hash.slice(1));
-  if (h.get("s") && h.get("id")) {
-    const d = { server: h.get("s"), id: h.get("id") };
+  // 网页由被控端自己提供（https://电脑名.ts.net:端口/）时，地址就是本页
+  const self = !TOKEN && location.protocol === "https:" && !/(^|\.)rdeskapp\.com$/.test(location.hostname) ? location.host : "";
+  if ((h.get("s") || self) && h.get("id")) {
+    const d = { server: h.get("s") || self, id: h.get("id") };
     $("#server").value = d.server; $("#devid").value = d.id;
     $("#pw").value = store.get("pw", {})[devKey(d)] || "";
     setTimeout(() => $("#pw").value ? $("#go").focus() : $("#pw").focus(), 0);
@@ -86,9 +88,14 @@ function wsURL(server, id) {
   if (TOKEN) return `ws://${location.host}/proxy?t=${TOKEN}&target=${encodeURIComponent(server)}&id=${encodeURIComponent(id)}`;
   // 官网版：https 页面只能连 wss（被控端要开 Tailscale HTTPS）
   let s = server.trim();
-  if (!/^[a-z]+:\/\//i.test(s)) s = "wss://" + s;
+  const bare = !/^[a-z]+:\/\//i.test(s);
+  if (bare) s = "wss://" + s;
   const u = new URL(s.replace(/^http/i, "ws"));
+  // 只填了电脑名（如 xxx.ts.net）没写端口：被控端默认端口 21130；Cloudflare 临时分享地址走默认 443
+  if (bare && !u.port && !/\.trycloudflare\.com$/i.test(u.hostname)) u.port = "21130";
   if (location.protocol === "https:" && u.protocol !== "wss:") return null;
+  // Tailscale IP 没有证书，浏览器的加密连接一定失败：提示改用「浏览器连接」链接里的电脑名
+  if (location.protocol === "https:" && /^100\.\d+\.\d+\.\d+$/.test(u.hostname)) return null;
   u.pathname = u.pathname.replace(/\/+$/, "").replace(/\/ws\/view$/, "") + "/ws/view";
   u.search = "?id=" + encodeURIComponent(id);
   return u.toString();
@@ -129,6 +136,8 @@ class Session {
     this.ws.binaryType = "arraybuffer";
     this.ws.onmessage = (e) => this.onMessage(e.data);
     this.ws.onclose = () => this.closed();
+    // 连不上时浏览器可能一直不报错（比如端口不对、对方不在 Tailscale 里）：12 秒还没连上就停
+    this.openTimer = setTimeout(() => { if (!this.connected) { this.error = T.errConnect; this.close(); } }, 12000);
     this.ws.onerror = () => {};
     this.sendChain = Promise.resolve();
   }
@@ -174,6 +183,7 @@ class Session {
       case M.FRAME: this.onJPEG(p, v); break;
       case M.AUDIO: this.onAudio(p.subarray(1)); break;
       case M.CURSOR_SHAPE: this.onCursorShape(p, v); break;
+      case M.CURSOR: this.onCursorPos(v.getUint16(1), v.getUint16(3)); break;
       case M.PONG: this.rtt = performance.now() - v.getFloat64(1); break;
       case M.INFO: toast(dec.decode(p.subarray(1))); break;
     }
@@ -183,6 +193,8 @@ class Session {
     this.host = info;
     this.hostMac = info.os === "darwin";
     this.connected = true;
+    clearTimeout(this.openTimer);
+    this.cx = 32768; this.cy = 32768;
     setBusy("");
     // 记住设备（和密码）
     const dev = { server: this.server, id: this.id, name: info.name };
@@ -194,7 +206,7 @@ class Session {
     renderDevices();
     showRemote(this);
     if (info.input === false) toast(T.noInput);
-    else if (matchMedia("(pointer: coarse)").matches) toast(T.touchHint); // 触屏设备：提示手势
+    else if (COARSE) toast(touchMode === "mouse" ? T.mouseHint : T.touchHint); // 触屏设备：提示手势
     this.startAudio();
     this.timer = setInterval(() => this.tick(), 1000);
   }
@@ -312,9 +324,22 @@ class Session {
       const c = document.createElement("canvas");
       c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
       c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-      this.canvas.style.cursor = `url(${c.toDataURL()}) ${Math.round(hx * k)} ${Math.round(hy * k)}, default`;
+      const url = c.toDataURL();
+      this.canvas.style.cursor = `url(${url}) ${Math.round(hx * k)} ${Math.round(hy * k)}, default`;
+      // 触屏设备没有本机光标：在画面上画一个（热点按比例换算到 24 像素高）
+      this.hot = [hx / Math.max(h, 1), hy / Math.max(h, 1), w / Math.max(h, 1)];
+      $("#rcursor").src = url;
+      placeCursor();
     };
     img.src = URL.createObjectURL(new Blob([p.subarray(9)], { type: "image/png" }));
+  }
+
+  // 被控端光标位置（0...65535；65535,65535 = 不在这块屏幕上）
+  onCursorPos(x, y) {
+    if (mm.dragging || performance.now() - mm.movedAt < 300) return; // 正在用手指移光标时以本地为准，免得被旧位置拉回去
+    this.off = x === 65535 && y === 65535;
+    if (!this.off) { this.cx = x; this.cy = y; }
+    placeCursor();
   }
 
   tick() {
@@ -342,7 +367,7 @@ class Session {
   closed() {
     if (this.done) return;
     this.done = true;
-    clearInterval(this.timer);
+    clearInterval(this.timer); clearTimeout(this.openTimer);
     try { this.decoder?.close(); } catch {}
     try { this.adec?.close(); this.ac?.close(); } catch {}
     if (S === this) S = null;
@@ -394,7 +419,17 @@ function showRemote(s) {
   canvas.focus();
 }
 
-function updateBar(s) { $("#audioBtn").textContent = s.audioOn ? "🔊 " + T.sound : "🔇 " + T.mute; }
+function updateBar(s) {
+  $("#audioBtn").textContent = s.audioOn ? "🔊 " + T.sound : "🔇 " + T.mute;
+  $("#modeBtn").hidden = !COARSE;
+  $("#modeBtn").textContent = touchMode === "mouse" ? "🖱 " + T.modeMouse : "👆 " + T.modeTouch;
+  placeCursor();
+}
+$("#modeBtn").onclick = () => {
+  touchMode = touchMode === "mouse" ? "touch" : "mouse"; store.set("touchMode", touchMode);
+  if (S) updateBar(S);
+  toast(touchMode === "mouse" ? T.mouseHint : T.touchHint);
+};
 
 function hideRemote() {
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -451,9 +486,89 @@ canvas.addEventListener("pointerup", (e) => {
 });
 canvas.addEventListener("pointercancel", (e) => { if (S?.connected && e.pointerType === "touch") touchUp(e, false); });
 
+// 触屏两种操作方式（和 App 一样）：鼠标模式像触控板，手指滑动移光标；触控模式点哪按哪
+const COARSE = matchMedia("(pointer: coarse)").matches;
+let touchMode = store.get("touchMode", "mouse");
+const touchDown = (e) => (touchMode === "mouse" ? mouseDown : tapDown)(e);
+const touchMove = (e) => (touchMode === "mouse" ? mouseMove : tapMove)(e);
+const touchUp = (e, ok) => (touchMode === "mouse" ? mouseUp : tapUp)(e, ok);
+
+// 远程坐标 → 屏幕位置，画触屏用的光标
+function placeCursor() {
+  const img = $("#rcursor");
+  if (!S?.connected || !COARSE || touchMode !== "mouse" || S.off || !S.hot || $("#remote").hidden) { img.hidden = true; return; }
+  const r = canvas.getBoundingClientRect(), W = canvas.width || 1, H = canvas.height || 1;
+  const s = Math.min(r.width / W, r.height / H), w = W * s, h = H * s;
+  const x = r.left + (r.width - w) / 2 + S.cx / 65535 * w, y = r.top + (r.height - h) / 2 + S.cy / 65535 * h;
+  img.style.left = x - S.hot[0] * 24 + "px"; img.style.top = y - S.hot[1] * 24 + "px";
+  img.hidden = false;
+}
+addEventListener("resize", placeCursor);
+
+// 鼠标模式：单指滑 = 移光标；轻点 = 左键；按住 0.4 秒再拖 = 拖拽；双指轻点 = 右键；双指滑 = 滚动
+const mm = { fingers: new Map(), id: null, sx: 0, sy: 0, lx: 0, ly: 0, t: 0, moved: false, timer: 0, dragging: false, two: 0, twoMoved: false, movedAt: 0, wx: 0, wy: 0 };
+function mouseDown(e) {
+  mm.fingers.set(e.pointerId, [e.clientX, e.clientY]);
+  if (mm.fingers.size === 2) {
+    clearTimeout(mm.timer);
+    if (mm.dragging) { S.button(0, false, S.cx, S.cy); mm.dragging = false; }
+    mm.two = performance.now(); mm.twoMoved = false; mm.wx = 0; mm.wy = 0;
+    return;
+  }
+  if (mm.fingers.size > 2) return;
+  mm.id = e.pointerId; mm.sx = mm.lx = e.clientX; mm.sy = mm.ly = e.clientY; mm.t = performance.now(); mm.moved = false; mm.two = 0;
+  mm.timer = setTimeout(() => { // 按住不动：进入拖拽（左键按下不放）
+    if (mm.moved || mm.two) return;
+    mm.dragging = true; S.button(0, true, S.cx, S.cy); navigator.vibrate?.(15);
+  }, 400);
+}
+function mouseMove(e) {
+  const prev = mm.fingers.get(e.pointerId);
+  if (!prev) return;
+  mm.fingers.set(e.pointerId, [e.clientX, e.clientY]);
+  if (mm.two) { // 双指滑动 = 滚动（手指往上推，内容往下走，和触控板一样）
+    if (e.pointerId !== [...mm.fingers.keys()][0]) return;
+    const dx = e.clientX - prev[0], dy = e.clientY - prev[1];
+    if (Math.abs(dx) + Math.abs(dy) > 0) mm.twoMoved = mm.twoMoved || Math.hypot(dx, dy) > 2;
+    mm.wx += -dx * 3; mm.wy += -dy * 3;
+    const ix = Math.trunc(mm.wx), iy = Math.trunc(mm.wy);
+    if (ix || iy) { S.wheel(ix, iy); mm.wx -= ix; mm.wy -= iy; }
+    return;
+  }
+  if (e.pointerId !== mm.id) return;
+  const dx = e.clientX - mm.lx, dy = e.clientY - mm.ly;
+  mm.lx = e.clientX; mm.ly = e.clientY;
+  if (!mm.moved && Math.hypot(e.clientX - mm.sx, e.clientY - mm.sy) < 8) return;
+  if (!mm.moved) { mm.moved = true; if (!mm.dragging) clearTimeout(mm.timer); }
+  // 手指移动换算成光标移动：按画面实际显示的大小，1.5 倍速，快划再加速（横竖速度一致）
+  const r = canvas.getBoundingClientRect(), W = canvas.width || 1, H = canvas.height || 1;
+  const sc = Math.min(r.width / W, r.height / H), gain = 1.5 * (Math.hypot(dx, dy) > 12 ? 1.8 : 1);
+  S.cx = Math.max(0, Math.min(65535, S.cx + dx * gain * 65535 / (W * sc)));
+  S.cy = Math.max(0, Math.min(65535, S.cy + dy * gain * 65535 / (H * sc)));
+  S.off = false; mm.movedAt = performance.now();
+  const now = performance.now(); if (now - lastMove >= 4) { lastMove = now; S.move(Math.round(S.cx), Math.round(S.cy)); }
+  placeCursor();
+}
+function mouseUp(e, ok) {
+  mm.fingers.delete(e.pointerId);
+  if (mm.two) {
+    if (mm.fingers.size === 0) {
+      if (ok && !mm.twoMoved && performance.now() - mm.two < 350) { S.button(2, true, S.cx, S.cy); S.button(2, false, S.cx, S.cy); }
+      mm.two = 0;
+    }
+    return;
+  }
+  if (e.pointerId !== mm.id) return;
+  clearTimeout(mm.timer);
+  const cx = Math.round(S.cx), cy = Math.round(S.cy);
+  if (mm.dragging) { S.move(cx, cy); S.button(0, false, cx, cy); mm.dragging = false; }
+  else if (ok && !mm.moved && performance.now() - mm.t < 400) { S.button(0, true, cx, cy); S.button(0, false, cx, cy); }
+  mm.id = null;
+}
+
 // 触屏（手机 / 平板浏览器）：点哪按哪；按住 0.5 秒不动 = 右键；双指轻点 = 右键；单指拖 = 拖拽（和 App 的触控模式一样）
 const tc = { fingers: new Set(), id: null, x: 0, y: 0, cx: 0, cy: 0, timer: 0, down: false, done: false, two: 0, twoMoved: false };
-function touchDown(e) {
+function tapDown(e) {
   tc.fingers.add(e.pointerId);
   if (tc.fingers.size === 2) { // 第二根手指：取消单指动作，准备双指轻点
     clearTimeout(tc.timer);
@@ -471,7 +586,7 @@ function touchDown(e) {
     navigator.vibrate?.(15);
   }, 500);
 }
-function touchMove(e) {
+function tapMove(e) {
   if (tc.two) { if (Math.hypot(e.clientX - tc.cx, e.clientY - tc.cy) > 12) tc.twoMoved = true; return; }
   if (e.pointerId !== tc.id || tc.done) return;
   if (!tc.down) {
@@ -482,7 +597,7 @@ function touchMove(e) {
   const now = performance.now(); if (now - lastMove < 4) return; lastMove = now;
   [tc.x, tc.y] = remoteXY(e); S.move(tc.x, tc.y);
 }
-function touchUp(e, ok) {
+function tapUp(e, ok) {
   tc.fingers.delete(e.pointerId);
   if (tc.two) { // 双指轻点：两根手指都抬起、没怎么动、时间短
     if (tc.fingers.size === 0) {
