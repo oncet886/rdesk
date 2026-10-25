@@ -22,6 +22,8 @@ RDesk Host for Windows v$VER（测试版 / Beta）
    · 防火墙询问时，勾选「专用网络」和「公用网络」，点「允许」。
 3. 窗口里会显示远程地址、设备 ID 和密码，填到手机或电脑上的 RDesk 远控里即可连接。
    这个窗口不要关，关掉就停止被控。
+4. 窗口里的「控制面板」链接可以打开本机控制面板：换密码、断开控制端、浏览器连接、临时分享。
+5. 程序会自动更新（没人连着时自动下载新版并重启），可以在控制面板里关掉。
 限制：Windows 锁屏和 UAC 弹窗（安全桌面）期间看不到、也控制不了，需要在本机解锁。
 更多：https://rdeskapp.com
 
@@ -31,6 +33,8 @@ RDesk Host for Windows v$VER（测试版 / Beta）
    - If Windows SmartScreen says "Windows protected your PC", click "More info" → "Run anyway" (the beta is not code-signed yet).
    - When the firewall asks, allow both Private and Public networks.
 3. The window shows the address, device ID and password. Enter them in the RDesk app. Keep the window open.
+4. The "Panel" link opens the local control panel: new password, disconnect a viewer, browser access, temporary sharing.
+5. RDesk Host updates itself automatically when no viewer is connected; you can turn this off in the control panel.
 Limitation: the lock screen and UAC prompts (secure desktop) cannot be seen or controlled remotely yet.
 More: https://rdeskapp.com
 EOF
