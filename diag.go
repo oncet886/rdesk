@@ -195,7 +195,8 @@ func (d *diagState) run() {
 var pingRe = regexp.MustCompile(`via (\S+(?: \S+)?) in ([\d.]+)ms`)
 
 func tailscaleBin() string {
-	for _, p := range []string{"/usr/local/bin/tailscale", "/opt/homebrew/bin/tailscale", "/Applications/Tailscale.app/Contents/MacOS/Tailscale"} {
+	for _, p := range []string{"/usr/local/bin/tailscale", "/opt/homebrew/bin/tailscale", "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
+		`C:\Program Files\Tailscale\tailscale.exe`, "tailscale"} {
 		if _, err := exec.LookPath(p); err == nil {
 			return p
 		}

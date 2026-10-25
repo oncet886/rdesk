@@ -14,6 +14,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 	"unsafe"
 )
 
@@ -31,6 +32,9 @@ const (
 	tagQuit
 	_
 	tagPasswordShown
+	tagWeb       // 浏览器连接（Tailscale 证书）
+	tagShare     // 临时分享
+	tagShareStop // 停止临时分享
 )
 
 // AppKit 必须跑在进程的主线程上：把 main goroutine 固定在主线程
@@ -110,6 +114,27 @@ func goMenuWillOpen() {
 	default:
 		setItem(tagPerms, L("✓ 屏幕录制、辅助功能权限正常"), false, false, false)
 	}
+	w := webSnapshot()
+	switch {
+	case w.Link != "":
+		setItem(tagWeb, L("浏览器连接（点击复制链接）"), true, false, false)
+	case w.CertErr == certErrOff:
+		setItem(tagWeb, L("开启浏览器连接…（需在 Tailscale 后台打开 HTTPS）"), true, false, false)
+	default:
+		setItem(tagWeb, "", false, false, true)
+	}
+	switch {
+	case !w.CanShare:
+		setItem(tagShare, "", false, false, true)
+	case w.Share != "":
+		mins := int(time.Until(time.UnixMilli(w.ShareUntil)).Minutes()) + 1
+		setItem(tagShare, fmt.Sprintf(L("● 临时分享中，剩 %d 分钟 — 点击复制链接"), mins), true, false, false)
+	case w.ShareBusy:
+		setItem(tagShare, L("临时分享：正在准备…"), false, false, false)
+	default:
+		setItem(tagShare, L("临时分享给别人（1 小时）…"), true, false, false)
+	}
+	setItem(tagShareStop, L("停止临时分享"), true, false, w.Share == "")
 	setItem(tagPanel, L("打开控制面板…"), diagURL != "", false, false)
 	setItem(tagNewPassword, L("换新密码…"), true, false, false)
 	setItem(tagLogin, L("登录时自动启动"), true, C.rdLoginItem() == 1, C.rdIsBundle() == 0)
@@ -141,6 +166,21 @@ func goMenuAction(tag C.int) {
 		} else {
 			openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
 		}
+	case tagWeb:
+		if w := webSnapshot(); w.Link != "" {
+			copyText(w.Link)
+		} else {
+			openURL(tsAdminDNS)
+		}
+	case tagShare:
+		if w := webSnapshot(); w.Share != "" {
+			copyText(w.Share)
+		} else if confirm(L("临时分享给别人？"), L("会生成一个公网链接：对方用浏览器打开、输入密码就能控制这台电脑，不用装任何软件。1 小时后自动关闭，只发给你信任的人。"), L("开始分享")) {
+			go startShare()
+			openURL(diagURL) // 链接准备好后显示在控制面板里
+		}
+	case tagShareStop:
+		stopShare()
 	case tagPanel:
 		openURL(diagURL)
 	case tagNewPassword:
@@ -153,6 +193,6 @@ func goMenuAction(tag C.int) {
 	case tagLogin:
 		C.rdSetLoginItem(cbool(C.rdLoginItem() == 0))
 	case tagQuit:
-		os.Exit(0)
+		exitApp(0)
 	}
 }

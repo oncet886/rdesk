@@ -40,6 +40,7 @@ func registerPanel(mux *http.ServeMux) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"addr": L(panel.Addr), "mode": panel.Mode, "id": cfg.ID, "password": cfg.Password,
 			"lang": langCode(), "os": runtime.GOOS,
+			"web":     webSnapshot(),
 			"version": version, "screen": screen, "access": access,
 			"tsIP": tailscaleIP(), "tsInstalled": appErr == nil || tailscaleBin() != "",
 		})
@@ -55,13 +56,25 @@ func registerPanel(mux *http.ServeMux) {
 		}
 		w.Write([]byte("ok"))
 	})
+	mux.HandleFunc("/api/share", func(w http.ResponseWriter, r *http.Request) {
+		if !localOnly(r) || r.Method != "POST" || r.Header.Get("X-RDesk") != "1" {
+			http.Error(w, "forbidden", 403)
+			return
+		}
+		if r.URL.Query().Get("on") == "1" {
+			go startShare()
+		} else {
+			stopShare()
+		}
+		w.Write([]byte("ok"))
+	})
 	mux.HandleFunc("/api/quit", func(w http.ResponseWriter, r *http.Request) {
 		if !localOnly(r) || r.Method != "POST" || r.Header.Get("X-RDesk") != "1" {
 			http.Error(w, "forbidden", 403)
 			return
 		}
 		w.Write([]byte("bye"))
-		go func() { time.Sleep(300 * time.Millisecond); os.Exit(0) }()
+		go func() { time.Sleep(300 * time.Millisecond); exitApp(0) }()
 	})
 }
 

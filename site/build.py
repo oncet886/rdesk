@@ -237,6 +237,13 @@ if __name__ == "__main__":
         p = out / file
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(shell(lang, path, title, desc, body), encoding="utf-8")
+    # 网页版控制端 /web/（和电脑控制端同一套文件，见 ../viewer/web）；脚本和样式带版本号，免得浏览器用旧缓存
+    web = out / "web"
+    shutil.copytree(root.parent / "viewer" / "web", web)
+    idx = (web / "index.html").read_text(encoding="utf-8")
+    for f in ("style.css", "i18n.js", "app.js"):
+        idx = idx.replace(f'"{f}"', f'"{f}?v={VERSION}"')
+    (web / "index.html").write_text(idx, encoding="utf-8")
     (out / "robots.txt").write_text(f"User-agent: *\nAllow: /\nSitemap: {SITE}/sitemap.xml\n")
     urls = "".join(f"<url><loc>{SITE}{p}</loc></url>" for _, p, *_ in PAGES)
     (out / "sitemap.xml").write_text(f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n')

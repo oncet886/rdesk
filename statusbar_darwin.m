@@ -66,7 +66,7 @@ void rdStatusRun(void) {
 		NSMenu *m = [NSMenu new];
 		m.autoenablesItems = NO;
 		m.delegate = gStatus;
-		int tags[] = {0, -1, 1, 2, 3, 12, 4, -1, 5, 6, -1, 7, 8, 9, -1, 10};
+		int tags[] = {0, -1, 1, 2, 3, 12, 4, 13, -1, 14, 15, -1, 5, 6, -1, 7, 8, 9, -1, 10};
 		for (int i = 0; i < (int)(sizeof(tags) / sizeof(tags[0])); i++) {
 			if (tags[i] < 0) { [m addItem:[NSMenuItem separatorItem]]; continue; }
 			NSMenuItem *it = [[NSMenuItem alloc] initWithTitle:@"…" action:@selector(act:) keyEquivalent:@""];

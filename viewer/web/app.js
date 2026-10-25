@@ -59,6 +59,16 @@ function renderDevices() {
 renderDevices();
 const last = store.get("last", null);
 if (last) { $("#server").value = last.server; $("#devid").value = last.id; $("#pw").value = store.get("pw", {})[devKey(last)] || ""; }
+// 被控端给的链接：rdeskapp.com/web/#s=地址&id=设备ID（# 后面的内容不会发给网站；密码不放在链接里）
+{
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get("s") && h.get("id")) {
+    const d = { server: h.get("s"), id: h.get("id") };
+    $("#server").value = d.server; $("#devid").value = d.id;
+    $("#pw").value = store.get("pw", {})[devKey(d)] || "";
+    setTimeout(() => $("#pw").value ? $("#go").focus() : $("#pw").focus(), 0);
+  }
+}
 
 function showError(m) { const b = $("#error"); b.textContent = m; b.hidden = !m; }
 

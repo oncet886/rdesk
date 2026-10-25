@@ -70,3 +70,13 @@ a { color: #5b8cff; font-weight: 600; text-decoration: none; }
 /* 全屏：工具栏变成浮层，鼠标移到最上沿才出现 */
 :fullscreen #bar { position: absolute; top: 0; left: 0; right: 0; transform: translateY(-100%); transition: transform .15s; }
 :fullscreen #bar.show { transform: none; }
+/* 手机：名字一行，按钮一行横向滑动，不挡画面 */
+@media (max-width: 640px) {
+  #bar { flex-wrap: wrap; gap: 4px 10px; padding: 4px 8px; }
+  #bar .who { flex-direction: row; align-items: baseline; gap: 8px; flex: 1 1 100%; }
+  .tools { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; width: 100%; scrollbar-width: none; }
+  .tools::-webkit-scrollbar { display: none; }
+  .tool { flex: none; padding: 4px 9px; font-size: 12px; white-space: nowrap; }
+  .menu { position: static; flex: none; }
+  .pop { position: fixed; top: 70px; left: 8px; right: 8px; max-height: 60vh; overflow-y: auto; z-index: 5; }
+}

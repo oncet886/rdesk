@@ -172,8 +172,7 @@ func startHostCmd(cfg config, o hostOpts, relayURL string, forceTunnel, noTunnel
 				if err != nil {
 					log.Fatalf("监听 %s 失败: %v（端口被占用可加 -port 换一个）", addr, err)
 				}
-				srv := &http.Server{Handler: newRelay("").handler(), ReadHeaderTimeout: 10 * time.Second}
-				go srv.Serve(ln)
+				serveTailscale(ln, newRelay("").handler(), pt)
 				o.relayURL = "ws://" + addr + "/ws/host"
 				log.Print(L("Tailscale 直连模式（不经过任何中转服务器）"))
 				panel = panelState{Addr: addr, Mode: "tailscale"}
@@ -295,6 +294,9 @@ func findCloudflared() string {
 				return p
 			}
 		}
+	}
+	if p := cloudflaredPath(); fileExists(p) {
+		return p
 	}
 	if p, err := exec.LookPath("cloudflared"); err == nil {
 		return p

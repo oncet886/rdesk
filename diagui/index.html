@@ -57,6 +57,10 @@
   .perms { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; }
   .perm-ok { color: var(--ok); } .perm-bad { color: var(--bad); }
   .perms a { color: var(--info); }
+  .webrow { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13px; }
+  .webrow b { display: block; font-size: 14px; margin-bottom: 4px; }
+  .webrow .link { font-family: ui-monospace, "SF Mono", Menlo, monospace; word-break: break-all; color: var(--info); margin: 6px 0; }
+  .webrow .btn { display: inline-block; margin: 8px 6px 0 0; text-decoration: none; }
   .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; }
 </style>
 </head>
@@ -81,6 +85,8 @@
     </div>
     <div class="perms" id="perms"></div>
     <div class="perms" id="ts"></div>
+    <div class="webrow" id="web" hidden></div>
+    <div class="webrow" id="share" hidden></div>
   </section>
 
   <div id="diagArea">
@@ -149,6 +155,21 @@ const TR = {
   confirmQuit: ["退出后控制端将无法连接这台电脑，直到再次打开 RDesk Host。确定退出？", "After quitting, nobody can connect to this computer until you open RDesk Host again. Quit?", "結束後控制端將無法連線這台電腦，直到再次開啟 RDesk Host。確定結束？", "終了すると、RDesk Host を再び開くまでこのコンピュータに接続できません。終了しますか？", "종료하면 RDesk Host를 다시 열 때까지 이 컴퓨터에 연결할 수 없습니다. 종료할까요?", "Al salir, nadie podrá conectarse a este equipo hasta que abras RDesk Host de nuevo. ¿Salir?", "Après avoir quitté, personne ne pourra se connecter à cet ordinateur avant de rouvrir RDesk Host. Quitter ?", "Danach kann sich niemand verbinden, bis RDesk Host wieder geöffnet wird. Beenden?", "Depois de sair, ninguém poderá conectar a este computador até abrir o RDesk Host de novo. Sair?", "После выхода к этому компьютеру нельзя будет подключиться, пока RDesk Host не будет снова открыт. Выйти?"],
   quitTitle: ["RDesk 被控端已退出", "RDesk Host has quit", "RDesk 被控端已結束", "RDesk Host を終了しました", "RDesk Host가 종료됨", "RDesk Host se ha cerrado", "RDesk Host a été quitté", "RDesk Host wurde beendet", "O RDesk Host foi encerrado", "RDesk Host закрыт"],
   quitHint: ["重新打开「RDesk Host」即可再次连接。", "Open RDesk Host again to allow connections.", "重新開啟「RDesk Host」即可再次連線。", "RDesk Host をもう一度開くと接続できるようになります。", "RDesk Host를 다시 열면 연결할 수 있습니다.", "Abre RDesk Host de nuevo para permitir conexiones.", "Rouvrez RDesk Host pour autoriser les connexions.", "RDesk Host erneut öffnen, um Verbindungen zu erlauben.", "Abra o RDesk Host de novo para permitir conexões.", "Откройте RDesk Host снова, чтобы разрешить подключения."],
+  webTitle: ["浏览器连接", "Browser access", "瀏覽器連線", "ブラウザ接続", "브라우저 연결", "Acceso desde navegador", "Accès navigateur", "Browser-Zugriff", "Acesso pelo navegador", "Доступ из браузера"],
+  webReady: ["在浏览器打开这个链接就能连接（那台设备也要打开 Tailscale、登录同一个账号）：", "Open this link in a browser to connect (that device also needs Tailscale, signed in to the same account):", "在瀏覽器開啟這個連結就能連線（那台裝置也要開啟 Tailscale、登入同一個帳號）：", "ブラウザでこのリンクを開くと接続できます（その端末でも Tailscale を開き、同じアカウントでログイン）:", "브라우저에서 이 링크를 열면 연결됩니다 (그 기기도 Tailscale을 켜고 같은 계정으로 로그인):", "Abre este enlace en un navegador para conectarte (ese dispositivo también necesita Tailscale con la misma cuenta):", "Ouvrez ce lien dans un navigateur pour vous connecter (cet appareil doit aussi avoir Tailscale avec le même compte) :", "Diesen Link im Browser öffnen (das Gerät braucht ebenfalls Tailscale mit demselben Konto):", "Abra este link no navegador para conectar (o dispositivo também precisa do Tailscale com a mesma conta):", "Откройте эту ссылку в браузере (на том устройстве тоже нужен Tailscale с той же учётной записью):"],
+  webOff: ["在 Tailscale 后台打开 HTTPS 后，就能用浏览器连接这台电脑（打开后一分钟内自动生效）。", "Turn on HTTPS in the Tailscale admin console to connect from a browser (takes effect within a minute).", "在 Tailscale 後台開啟 HTTPS 後，就能用瀏覽器連線這台電腦（開啟後一分鐘內自動生效）。", "Tailscale 管理画面で HTTPS をオンにすると、ブラウザから接続できます（1 分以内に反映）。", "Tailscale 관리 콘솔에서 HTTPS를 켜면 브라우저로 연결할 수 있습니다 (1분 안에 적용).", "Activa HTTPS en la consola de Tailscale para conectarte desde un navegador (se aplica en un minuto).", "Activez HTTPS dans la console Tailscale pour vous connecter depuis un navigateur (effectif sous une minute).", "HTTPS in der Tailscale-Konsole einschalten, dann klappt der Browser-Zugriff (innerhalb einer Minute).", "Ative HTTPS no console do Tailscale para conectar pelo navegador (vale em até um minuto).", "Включите HTTPS в консоли Tailscale, чтобы подключаться из браузера (заработает в течение минуты)."],
+  webOffBtn: ["去打开 HTTPS", "Open Tailscale DNS settings", "前往開啟 HTTPS", "HTTPS をオンにする", "HTTPS 켜러 가기", "Activar HTTPS", "Activer HTTPS", "HTTPS einschalten", "Ativar HTTPS", "Включить HTTPS"],
+  webPending: ["正在申请证书…", "Getting a certificate…", "正在申請憑證…", "証明書を取得中…", "인증서 받는 중…", "Obteniendo el certificado…", "Obtention du certificat…", "Zertifikat wird geholt…", "Obtendo o certificado…", "Получение сертификата…"],
+  webErr: ["证书申请失败：{0}", "Certificate failed: {0}", "憑證申請失敗：{0}", "証明書の取得に失敗: {0}", "인증서 실패: {0}", "Error del certificado: {0}", "Échec du certificat : {0}", "Zertifikat fehlgeschlagen: {0}", "Falha no certificado: {0}", "Ошибка сертификата: {0}"],
+  copyLink: ["复制链接", "Copy Link", "拷貝連結", "リンクをコピー", "링크 복사", "Copiar enlace", "Copier le lien", "Link kopieren", "Copiar link", "Копировать ссылку"],
+  shareTitle: ["临时分享", "Temporary sharing", "臨時分享", "一時共有", "임시 공유", "Compartir temporalmente", "Partage temporaire", "Temporär teilen", "Compartilhamento temporário", "Временный доступ"],
+  shareIdle: ["生成一个公网链接：对方用浏览器打开、输入密码就能控制这台电脑，不用装任何软件。1 小时后自动关闭。", "Creates a public link: open it in any browser and enter the password to control this computer, with nothing to install. Closes after 1 hour.", "產生一個公開連結：對方用瀏覽器開啟、輸入密碼就能控制這台電腦，不用安裝任何軟體。1 小時後自動關閉。", "公開リンクを作成します。ブラウザで開いてパスワードを入力すれば、何もインストールせずに操作できます。1 時間後に自動終了。", "공개 링크를 만듭니다. 브라우저로 열고 비밀번호를 입력하면 설치 없이 제어할 수 있습니다. 1시간 후 자동 종료.", "Crea un enlace público: ábrelo en cualquier navegador e introduce la contraseña para controlar este equipo sin instalar nada. Se cierra tras 1 hora.", "Crée un lien public : ouvrez-le dans un navigateur et saisissez le mot de passe pour contrôler cet ordinateur sans rien installer. Fermeture au bout d’1 heure.", "Erstellt einen öffentlichen Link: im Browser öffnen, Passwort eingeben, ohne Installation steuern. Endet nach 1 Stunde.", "Cria um link público: abra no navegador e digite a senha para controlar este computador sem instalar nada. Fecha após 1 hora.", "Создаёт публичную ссылку: откройте её в браузере и введите пароль — без установки программ. Закроется через 1 час."],
+  shareBtn: ["开始临时分享（1 小时）", "Share for 1 Hour", "開始臨時分享（1 小時）", "1 時間共有する", "1시간 공유 시작", "Compartir 1 hora", "Partager 1 heure", "1 Stunde teilen", "Compartilhar por 1 hora", "Открыть доступ на 1 час"],
+  shareBusy: ["正在准备…（第一次要下载约 40 MB 的 cloudflared）", "Getting ready… (the first time downloads cloudflared, about 40 MB)", "正在準備…（第一次要下載約 40 MB 的 cloudflared）", "準備中…（初回は cloudflared 約 40 MB をダウンロード）", "준비 중… (처음에는 cloudflared 약 40MB 다운로드)", "Preparando… (la primera vez descarga cloudflared, unos 40 MB)", "Préparation… (la première fois, téléchargement de cloudflared, ~40 Mo)", "Wird vorbereitet… (beim ersten Mal wird cloudflared geladen, ca. 40 MB)", "Preparando… (na primeira vez baixa o cloudflared, cerca de 40 MB)", "Подготовка… (в первый раз загружается cloudflared, ~40 МБ)"],
+  shareOn: ["分享中，还剩 {0} 分钟。把链接和密码发给对方：", "Sharing, {0} min left. Send the link and the password:", "分享中，還剩 {0} 分鐘。把連結和密碼傳給對方：", "共有中（残り {0} 分）。リンクとパスワードを送ってください:", "공유 중, {0}분 남음. 링크와 비밀번호를 보내세요:", "Compartiendo, quedan {0} min. Envía el enlace y la contraseña:", "Partage en cours, {0} min restantes. Envoyez le lien et le mot de passe :", "Teilen aktiv, noch {0} Min. Link und Passwort senden:", "Compartilhando, faltam {0} min. Envie o link e a senha:", "Доступ открыт, осталось {0} мин. Отправьте ссылку и пароль:"],
+  shareStop: ["停止分享", "Stop Sharing", "停止分享", "共有を停止", "공유 중지", "Dejar de compartir", "Arrêter le partage", "Teilen beenden", "Parar de compartilhar", "Прекратить доступ"],
+  shareFail: ["分享失败：{0}", "Sharing failed: {0}", "分享失敗：{0}", "共有に失敗: {0}", "공유 실패: {0}", "Error al compartir: {0}", "Échec du partage : {0}", "Teilen fehlgeschlagen: {0}", "Falha ao compartilhar: {0}", "Ошибка: {0}"],
+  shareConfirm: ["会生成一个公网链接：对方用浏览器打开、输入密码就能控制这台电脑。只发给你信任的人。继续？", "This creates a public link that lets anyone with the password control this computer. Only send it to people you trust. Continue?", "會產生一個公開連結：對方用瀏覽器開啟、輸入密碼就能控制這台電腦。只傳給你信任的人。繼續？", "パスワードを知っていれば誰でもこのコンピュータを操作できる公開リンクを作成します。信頼できる相手にだけ送ってください。続けますか？", "비밀번호만 있으면 누구나 이 컴퓨터를 제어할 수 있는 공개 링크를 만듭니다. 믿을 수 있는 사람에게만 보내세요. 계속할까요?", "Se creará un enlace público con el que cualquiera que tenga la contraseña podrá controlar este equipo. Envíalo solo a personas de confianza. ¿Continuar?", "Un lien public permettra à toute personne ayant le mot de passe de contrôler cet ordinateur. Ne l’envoyez qu’à des personnes de confiance. Continuer ?", "Es wird ein öffentlicher Link erstellt, mit dem jeder mit dem Passwort diesen Computer steuern kann. Nur an Vertrauenswürdige senden. Fortfahren?", "Será criado um link público que permite a quem tiver a senha controlar este computador. Envie só para quem você confia. Continuar?", "Будет создана публичная ссылка: любой, кто знает пароль, сможет управлять компьютером. Отправляйте только тем, кому доверяете. Продолжить?"],
 };
 let col = 0; // 下标进 LANGS；api/info 返回后更新
 function t(k, ...a) { const row = TR[k]; let s = row ? row[col] || row[0] : k; a.forEach((v, i) => s = s.replace("{" + i + "}", v)); return s; }
@@ -241,7 +262,50 @@ async function loadInfo() {
   $("perms").innerHTML = (info.os === "darwin" ? perm(info.screen, "screen", "Privacy_ScreenCapture") + perm(info.access, "access", "Privacy_Accessibility") : "") +
     `<span class="muted">${TR["m_" + info.mode] ? t("m_" + info.mode) : info.mode} · v${info.version}</span>`;
   renderTS();
+  renderWeb(info.web || {});
 }
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+async function copyBtn(btn, text) {
+  await navigator.clipboard.writeText(text);
+  const old = btn.textContent; btn.textContent = t("copied"); setTimeout(() => btn.textContent = old, 1500);
+}
+function renderWeb(w) {
+  const tsMode = info.mode === "tailscale";
+  const web = $("web"), share = $("share");
+  web.hidden = !tsMode; share.hidden = !w.canShare;
+  if (tsMode) {
+    let h = `<b>${t("webTitle")}</b>`;
+    if (w.link) h += `<div>${t("webReady")}</div><div class="link">${esc(w.link)}</div><button class="btn" data-copy="${esc(w.link)}">${t("copyLink")}</button>`;
+    else if (w.certErr === "https-off") h += `<div>${t("webOff")}</div><a class="btn" href="https://login.tailscale.com/admin/dns" target="_blank" rel="noopener">${t("webOffBtn")}</a>`;
+    else if (w.certErr === "pending") h += `<div class="muted">${t("webPending")}</div>`;
+    else if (w.certErr) h += `<div class="perm-bad">${t("webErr", esc(w.certErr))}</div>`;
+    if (web.dataset.h !== h) { web.innerHTML = h; web.dataset.h = h; }
+  }
+  if (w.canShare) {
+    let h = `<b>${t("shareTitle")}</b>`;
+    if (w.share) {
+      const mins = Math.max(1, Math.ceil((w.shareUntil - Date.now()) / 60000));
+      h += `<div>${t("shareOn", mins)}</div><div class="link">${esc(w.share)}</div><button class="btn" data-copy="${esc(w.share)}">${t("copyLink")}</button><button class="btn danger" id="shareStop">${t("shareStop")}</button>`;
+    } else if (w.shareBusy) h += `<div class="muted">${t("shareBusy")}</div>`;
+    else {
+      h += `<div>${t("shareIdle")}</div>`;
+      if (w.shareErr) h += `<div class="perm-bad">${t("shareFail", esc(w.shareErr))}</div>`;
+      h += `<button class="btn" id="shareStart">${t("shareBtn")}</button>`;
+    }
+    if (share.dataset.h !== h) { share.innerHTML = h; share.dataset.h = h; }
+  }
+}
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.copy) return copyBtn(b, b.dataset.copy);
+  if (b.id === "shareStart") {
+    if (!confirm(t("shareConfirm"))) return;
+    await fetch("api/share?on=1", { method: "POST", headers: H });
+    setTimeout(loadInfo, 300);
+  }
+  if (b.id === "shareStop") { await fetch("api/share?on=0", { method: "POST", headers: H }); loadInfo(); }
+});
 function renderTS() {
   if (!info) return;
   let h;
