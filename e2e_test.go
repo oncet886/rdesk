@@ -191,7 +191,7 @@ func TestABR(t *testing.T) {
 		fc.sent(seq, bytes)
 		tx := time.Duration(float64(bytes*8) / 8e6 * float64(time.Second))
 		now = now.Add(90*time.Millisecond + tx + extra)
-		fc.ack(seq)
+		fc.ack(seq, now)
 		now = now.Add(50 * time.Millisecond)
 		a.tick()
 	}

@@ -81,7 +81,7 @@ type session struct {
 	authed    bool
 	cancel    context.CancelFunc
 	inflight  chan struct{}
-	acks      chan uint32 // 视频模式：控制端确认的帧序号
+	acks      chan ackEvt // 视频模式：控制端确认的帧序号和收到确认的时刻
 	set       settings
 	setCh     chan settings
 	bounds    image.Rectangle // 当前显示器在全局坐标中的范围（输入映射用）
@@ -167,7 +167,7 @@ func (h *host) connectOnce() error {
 func (h *host) newSession() {
 	h.endSession()
 	h.mu.Lock()
-	h.sess = &session{inflight: make(chan struct{}, 2), acks: make(chan uint32, 512), setCh: make(chan settings, 4),
+	h.sess = &session{inflight: make(chan struct{}, 2), acks: make(chan ackEvt, 512), setCh: make(chan settings, 4),
 		set: settings{Quality: 65, MaxW: 1920, FPS: 20}}
 	h.mu.Unlock()
 }
@@ -314,7 +314,7 @@ func (h *host) handleInput(s *session, p []byte) {
 		}
 		if s.video {
 			select {
-			case s.acks <- seq:
+			case s.acks <- ackEvt{seq, time.Now()}: // 在读取线程打时间戳，处理晚了也不影响测量
 			default:
 			}
 		} else {
@@ -424,6 +424,7 @@ func (h *host) streamVideo(ctx context.Context, s *session) {
 			ok = start()
 			continue
 		}
+		fc.drain(s.acks) // 没有新帧时也要及时处理确认，否则帧稀时测出的往返会把空闲时间也算进去
 		data, key, w, hh, got := videoNext(50 * time.Millisecond)
 		if !got {
 			continue
@@ -441,7 +442,7 @@ func (h *host) streamVideo(ctx context.Context, s *session) {
 			for !fc.canSend() {
 				select {
 				case a := <-s.acks:
-					fc.ack(a)
+					fc.ack(a.seq, a.t)
 				case <-ctx.Done():
 					return
 				case <-deadline:
@@ -816,8 +817,12 @@ func (f *flowCtl) sent(seq uint32, bytes int) {
 	f.unacked = append(f.unacked, sentFrame{seq, f.clock(), bytes})
 }
 
-func (f *flowCtl) ack(seq uint32) {
-	now := f.clock()
+type ackEvt struct {
+	seq uint32
+	t   time.Time
+}
+
+func (f *flowCtl) ack(seq uint32, now time.Time) {
 	for len(f.unacked) > 0 && (seq == 0 || f.unacked[0].seq <= seq) {
 		u := f.unacked[0]
 		f.unacked = f.unacked[1:]
@@ -832,11 +837,11 @@ func (f *flowCtl) ack(seq uint32) {
 	}
 }
 
-func (f *flowCtl) drain(ch chan uint32) {
+func (f *flowCtl) drain(ch chan ackEvt) {
 	for {
 		select {
 		case a := <-ch:
-			f.ack(a)
+			f.ack(a.seq, a.t)
 		default:
 			return
 		}
@@ -918,6 +923,9 @@ func (a *abrCtl) tick() {
 		a.goodAt = now
 	case ok && q < 40*time.Millisecond && now.Sub(a.goodAt) > 2*time.Second:
 		nk = min(a.maxKbps, a.kbps*115/100+200)
+	}
+	if os.Getenv("RDESK_CDEBUG") != "" && nk != a.kbps {
+		log.Printf("[abr] %d→%d q=%v ok=%v paused=%d unacked=%d minRTT=%v", a.kbps, nk, q, ok, a.paused, len(a.fc.unacked), a.fc.minRTT())
 	}
 	a.paused = 0
 	if nk != a.kbps {

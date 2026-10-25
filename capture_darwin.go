@@ -274,6 +274,7 @@ static void handleAudio(CMSampleBufferRef sb) {
 	if (atts && CFArrayGetCount(atts) > 0) {
 		NSDictionary *d = (__bridge NSDictionary *)CFArrayGetValueAtIndex(atts, 0);
 		NSNumber *st = d[SCStreamFrameInfoStatus];
+		if (getenv("RDESK_CDEBUG")) { static int n = 0; if (n++ < 5) fprintf(stderr, "[cap] frame status=%ld\n", (long)st.integerValue); }
 		if (st && st.integerValue != SCFrameStatusComplete) return; // 屏幕没变化的"空闲帧"直接跳过
 	}
 	CVPixelBufferRef pb = CMSampleBufferGetImageBuffer(sb);
@@ -302,7 +303,10 @@ static void handleAudio(CMSampleBufferRef sb) {
 	pthread_mutex_unlock(&gMu);
 	CVPixelBufferUnlockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
 }
-- (void)stream:(SCStream *)s didStopWithError:(NSError *)e { gStopped = 1; }
+- (void)stream:(SCStream *)s didStopWithError:(NSError *)e {
+	if (getenv("RDESK_CDEBUG")) fprintf(stderr, "[cap] stream stopped: %s\n", e.localizedDescription.UTF8String);
+	gStopped = 1;
+}
 @end
 
 static SCStream *gStream = nil;
@@ -382,6 +386,7 @@ static int startStream(uint32_t displayID, int maxW, int fps, int video, int aud
 		}
 		if (video && audio) [st addStreamOutput:gOut type:SCStreamOutputTypeAudio sampleHandlerQueue:gAQueue error:nil];
 		[st startCaptureWithCompletionHandler:^(NSError *e3) {
+			if (getenv("RDESK_CDEBUG")) fprintf(stderr, "[cap] start display=%u %zux%zu video=%d audio=%d err=%s\n", displayID, w, h, video, audio, e3 ? e3.localizedDescription.UTF8String : "nil");
 			if (e3) rc = 3; else gStream = st;
 			dispatch_semaphore_signal(sem);
 		}];
@@ -392,6 +397,7 @@ static int startStream(uint32_t displayID, int maxW, int fps, int video, int aud
 		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), gQueue, ^{
 			if (gLastPB || !gFilter || !gStream) return;
 			[SCScreenshotManager captureSampleBufferWithFilter:gFilter configuration:gCfg completionHandler:^(CMSampleBufferRef sb, NSError *e) {
+				if (getenv("RDESK_CDEBUG")) fprintf(stderr, "[cap] first-frame screenshot err=%s sb=%p\n", e ? e.localizedDescription.UTF8String : "nil", sb);
 				if (e || !sb) return;
 				CVPixelBufferRef pb = CMSampleBufferGetImageBuffer(sb);
 				if (!pb) return;
