@@ -74,6 +74,9 @@ type diagState struct {
 
 var diag = &diagState{}
 
+// 手机连上 / 断开时通知（菜单栏图标用）
+var onConnectedChange = func(bool) {}
+
 // 诊断只给自己用：公开版默认关闭（面板只显示连接信息），启动时设 RDESK_DIAG=1 才打开
 var diagEnabled = os.Getenv("RDESK_DIAG") == "1"
 
@@ -93,12 +96,17 @@ func (d *diagState) authed(codec string, set settings) {
 	d.mu.Lock()
 	d.codec, d.set = codec, set
 	d.mu.Unlock()
+	onConnectedChange(true)
 }
 
 func (d *diagState) close() {
 	d.mu.Lock()
+	was := d.active
 	d.active = false
 	d.mu.Unlock()
+	if was {
+		onConnectedChange(false)
+	}
 }
 
 func (d *diagState) frameSent(seq uint32, n int, key bool) {

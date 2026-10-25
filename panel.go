@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"strings"
@@ -46,18 +47,10 @@ func registerPanel(mux *http.ServeMux) {
 			http.Error(w, "forbidden", 403)
 			return
 		}
-		h := curHost.Load()
-		if h == nil {
-			http.Error(w, "not ready", 503)
-			return
-		}
-		cfg := loadConfig()
-		cfg.Password = randPassword(8)
-		if err := h.setPassword(cfg.Password); err != nil {
+		if _, err := newPassword(); err != nil {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		saveConfig(cfg)
 		w.Write([]byte("ok"))
 	})
 	mux.HandleFunc("/api/quit", func(w http.ResponseWriter, r *http.Request) {
@@ -68,4 +61,19 @@ func registerPanel(mux *http.ServeMux) {
 		w.Write([]byte("bye"))
 		go func() { time.Sleep(300 * time.Millisecond); os.Exit(0) }()
 	})
+}
+
+// 生成新密码：立刻生效并保存，正在连接的控制端会被断开
+func newPassword() (string, error) {
+	h := curHost.Load()
+	if h == nil {
+		return "", errors.New("被控端还没启动好")
+	}
+	cfg := loadConfig()
+	cfg.Password = randPassword(8)
+	if err := h.setPassword(cfg.Password); err != nil {
+		return "", err
+	}
+	saveConfig(cfg)
+	return cfg.Password, nil
 }

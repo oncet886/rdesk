@@ -21,11 +21,11 @@ RDesk 是一个类似 RustDesk 的远程桌面。这个仓库是 **Mac 被控端
 
 1. 在 [Releases](https://github.com/oncet886/rdesk/releases/latest) 下载 `RDesk-Host-macOS-v*.zip`，解压后把 **RDesk Host** 拖进「应用程序」。
 2. 双击打开（已通过 Apple 公证）。
-3. 浏览器会自动打开控制面板，显示**远程地址、设备 ID、密码**。
+3. 第一次会自动打开控制面板，显示**远程地址、设备 ID、密码**。之后点**菜单栏的 RDesk 图标**（显示器加箭头）就能看到地址、ID、密码（点一下就复制）、连接状态、Tailscale 和权限状态，还能换新密码、设置开机自启、退出。
 4. 按提示在 系统设置 → 隐私与安全性 里打开「屏幕录制」和「辅助功能」（控制面板上有直达链接）。
 5. 在 iPhone 上打开 Tailscale，再打开「RDesk 远控」，填入地址、ID、密码，点连接。
 
-以后再双击 RDesk Host，会直接打开控制面板；可以在面板里换新密码或退出。
+手机连上时菜单栏图标会变成实心。菜单栏图标多、被刘海挡住时，按住 ⌘ 把它拖到右边即可。
 
 ## 命令行
 
@@ -64,6 +64,7 @@ MIT © GPH Digital LLC
 - **End-to-end encrypted** (AES-256-GCM, key derived from device ID + password)
 - **Hardware H.264** up to 60 fps with **adaptive bitrate**, plus **system audio**
 - Shows the Mac's **real cursor shape**; **mouse mode** on the phone like RustDesk
+- **Menu bar icon** with the address, device ID and password (click to copy), connection, Tailscale and permission status
 
 **Requirements:** macOS 14+, Tailscale on both the Mac and the iPhone (same account), the RDesk iPhone app.
 

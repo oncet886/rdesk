@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const version = "0.1.3"
+const version = "0.1.4"
 
 func usage() {
 	fmt.Print(`rdesk ` + version + ` —— 走隧道的远程桌面（类 RustDesk）
@@ -93,9 +93,14 @@ func main() {
 		noTunnel := fs.Bool("no-tunnel", false, "不开隧道")
 		forceTunnel := fs.Bool("tunnel", false, "强制 Cloudflare 隧道")
 		port := fs.Int("port", 0, "本地中继端口")
+		noMenubar := fs.Bool("no-menubar", false, "不显示菜单栏图标")
 		fs.Parse(args)
 
 		cfg := loadConfig()
+		firstRun := cfg.ID == ""
+		if cfg.Diag {
+			diagEnabled = true
+		}
 		if *id != "" {
 			cfg.ID = *id
 		}
@@ -118,16 +123,30 @@ func main() {
 
 		o := hostOpts{id: cfg.ID, password: cfg.Password, key: *key}
 		diagURL = startDiag()
-		if os.Getenv("RDESK_APP") == "1" && diagURL != "" {
+		// 第一次打开才自动弹出控制面板；之后从菜单栏图标进
+		if os.Getenv("RDESK_APP") == "1" && diagURL != "" && firstRun {
 			go func() { time.Sleep(800 * time.Millisecond); exec.Command("open", diagURL).Run() }()
 		}
-		if *relayURL != "" {
-			o.relayURL = normalizeRelay(*relayURL, "/ws/host")
-			panel = panelState{Addr: httpURL(*relayURL), Mode: "relay"}
-			banner(cfg, httpURL(*relayURL))
+		run := func() { startHostCmd(cfg, o, *relayURL, *forceTunnel, *noTunnel, *port) }
+		// 菜单栏图标要占主线程：远程逻辑放到后台
+		if !*noMenubar && menubarAvailable() {
+			go run()
+			statusRun()
+		} else {
+			run()
+		}
+	}
+}
+
+func startHostCmd(cfg config, o hostOpts, relayURL string, forceTunnel, noTunnel bool, port int) {
+	{
+		if relayURL != "" {
+			o.relayURL = normalizeRelay(relayURL, "/ws/host")
+			panel = panelState{Addr: httpURL(relayURL), Mode: "relay"}
+			banner(cfg, httpURL(relayURL))
 		} else {
 			// 没有 Tailscale 也没装 cloudflared：等 Tailscale 打开（控制面板会提示下载/打开），打开后自动直连
-			if tailscaleIP() == "" && !*forceTunnel && !*noTunnel && findCloudflared() == "" {
+			if tailscaleIP() == "" && !forceTunnel && !noTunnel && findCloudflared() == "" {
 				panel = panelState{Addr: "等待 Tailscale 连接…", Mode: "waiting"}
 				log.Printf("没检测到 Tailscale，请安装并登录 Tailscale：https://tailscale.com/download （打开后会自动继续）")
 				for tailscaleIP() == "" {
@@ -135,8 +154,8 @@ func main() {
 				}
 			}
 			// Tailscale 直连：只监听 Tailscale 网卡，控制端在同一个 tailnet 里点对点直连，没有中转
-			if ts := tailscaleIP(); ts != "" && !*forceTunnel && !*noTunnel {
-				pt := *port
+			if ts := tailscaleIP(); ts != "" && !forceTunnel && !noTunnel {
+				pt := port
 				if pt == 0 {
 					pt = 21130 // 避开 RustDesk 的 21115-21119
 				}
@@ -160,7 +179,7 @@ func main() {
 				return
 			}
 			// 一键模式：内置中继 + 隧道
-			ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
+			ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -169,7 +188,7 @@ func main() {
 			go srv.Serve(ln)
 			o.relayURL = fmt.Sprintf("ws://127.0.0.1:%d/ws/host", p)
 			local := fmt.Sprintf("http://localhost:%d", p)
-			if *noTunnel {
+			if noTunnel {
 				panel = panelState{Addr: local, Mode: "local"}
 				banner(cfg, local)
 			} else {
@@ -209,6 +228,7 @@ func httpURL(s string) string {
 type config struct {
 	ID       string `json:"id"`
 	Password string `json:"password"`
+	Diag     bool   `json:"diag,omitempty"` // 开发者自用：打开连接诊断
 }
 
 func configPath() string {
