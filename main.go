@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const version = "0.2.4"
+const version = "0.2.5"
 
 func usage() {
 	fmt.Print(`rdesk ` + version + ` —— 走隧道的远程桌面（类 RustDesk）
@@ -45,6 +45,7 @@ func usage() {
 
 func main() {
 	log.SetFlags(log.Ltime)
+	waitOldInstance() // 刚升级完的新进程：等旧进程退出
 	if os.Getenv("RDESK_BENCH") == "1" {
 		benchAndExit()
 	}
@@ -142,6 +143,7 @@ func main() {
 }
 
 func startHostCmd(cfg config, o hostOpts, relayURL string, forceTunnel, noTunnel bool, port int) {
+	go updateLoop()
 	{
 		if relayURL != "" {
 			o.relayURL = normalizeRelay(relayURL, "/ws/host")
@@ -236,6 +238,8 @@ type config struct {
 	ID       string `json:"id"`
 	Password string `json:"password"`
 	Diag     bool   `json:"diag,omitempty"` // 开发者自用：打开连接诊断
+	// 关掉自动更新（默认开）
+	NoAutoUpdate bool `json:"noAutoUpdate,omitempty"`
 }
 
 func configPath() string {

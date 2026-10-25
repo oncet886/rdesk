@@ -244,6 +244,11 @@ if __name__ == "__main__":
     for f in ("style.css", "i18n.js", "app.js"):
         idx = idx.replace(f'"{f}"', f'"{f}?v={VERSION}"')
     (web / "index.html").write_text(idx, encoding="utf-8")
+    # 被控端自动升级：签名清单 + 安装包（由 go run ./scripts/updsign 生成）
+    if (root / "update.json").exists():
+        shutil.copy(root / "update.json", out / "update.json")
+    if (root / "dl").is_dir():
+        shutil.copytree(root / "dl", out / "dl")
     (out / "robots.txt").write_text(f"User-agent: *\nAllow: /\nSitemap: {SITE}/sitemap.xml\n")
     urls = "".join(f"<url><loc>{SITE}{p}</loc></url>" for _, p, *_ in PAGES)
     (out / "sitemap.xml").write_text(f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n')

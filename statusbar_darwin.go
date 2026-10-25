@@ -36,6 +36,8 @@ const (
 	tagShare     // 临时分享
 	tagShareStop // 停止临时分享
 	tagKick      // 断开当前控制端
+	tagAutoUpdate
+	tagCheckUpdate
 )
 
 // AppKit 必须跑在进程的主线程上：把 main goroutine 固定在主线程
@@ -141,6 +143,24 @@ func goMenuWillOpen() {
 	setItem(tagNewPassword, L("换新密码…"), true, false, false)
 	setItem(tagLogin, L("登录时自动启动"), true, C.rdLoginItem() == 1, C.rdIsBundle() == 0)
 	setItem(tagQuit, L("退出 RDesk Host"), true, false, false)
+	u := updSnapshot()
+	setItem(tagAutoUpdate, L("自动更新"), true, u.Auto, false)
+	switch {
+	case u.State == "checking":
+		setItem(tagCheckUpdate, L("正在检查更新…"), false, false, false)
+	case u.State == "downloading":
+		setItem(tagCheckUpdate, fmt.Sprintf(L("正在更新到 %s…"), u.Latest), false, false, false)
+	case u.State == "waiting":
+		setItem(tagCheckUpdate, fmt.Sprintf(L("有新版本 %s，断开后自动更新 — 点击立即更新"), u.Latest), true, false, false)
+	case u.State == "available" && !u.Can:
+		setItem(tagCheckUpdate, fmt.Sprintf(L("有新版本 %s — 点击去官网下载"), u.Latest), true, false, false)
+	case u.State == "error":
+		setItem(tagCheckUpdate, L("更新失败 — 点击重试"), true, false, false)
+	case u.State == "latest":
+		setItem(tagCheckUpdate, fmt.Sprintf(L("已是最新版本（%s）"), version), true, false, false)
+	default:
+		setItem(tagCheckUpdate, fmt.Sprintf(L("检查更新…（当前 %s）"), version), true, false, false)
+	}
 }
 
 //export goMenuAction
@@ -183,6 +203,14 @@ func goMenuAction(tag C.int) {
 		}
 	case tagShareStop:
 		stopShare()
+	case tagAutoUpdate:
+		setAutoUpdate(!updSnapshot().Auto)
+	case tagCheckUpdate:
+		if u := updSnapshot(); u.State == "available" && !u.Can {
+			openURL(siteDownload())
+		} else {
+			go runUpdate(true)
+		}
 	case tagKick:
 		if h := curHost.Load(); h != nil {
 			h.kickViewer()

@@ -9,3 +9,4 @@ dist/
 # rdeskapp.com 站点生成物
 site/dist/
 site/.wrangler/
+site/dl/

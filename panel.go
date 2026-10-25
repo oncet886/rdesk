@@ -40,7 +40,7 @@ func registerPanel(mux *http.ServeMux) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"addr": L(panel.Addr), "mode": panel.Mode, "id": cfg.ID, "password": cfg.Password,
 			"lang": langCode(), "os": runtime.GOOS,
-			"web":     webSnapshot(),
+			"web": webSnapshot(), "update": updSnapshot(),
 			"version": version, "screen": screen, "access": access,
 			"tsIP": tailscaleIP(), "tsInstalled": appErr == nil || tailscaleBin() != "",
 		})
@@ -53,6 +53,22 @@ func registerPanel(mux *http.ServeMux) {
 		if _, err := newPassword(); err != nil {
 			http.Error(w, err.Error(), 500)
 			return
+		}
+		w.Write([]byte("ok"))
+	})
+	mux.HandleFunc("/api/update", func(w http.ResponseWriter, r *http.Request) {
+		if !localOnly(r) || r.Method != "POST" || r.Header.Get("X-RDesk") != "1" {
+			http.Error(w, "forbidden", 403)
+			return
+		}
+		switch r.URL.Query().Get("auto") {
+		case "1":
+			setAutoUpdate(true)
+		case "0":
+			setAutoUpdate(false)
+		}
+		if r.URL.Query().Get("check") == "1" {
+			go runUpdate(true)
 		}
 		w.Write([]byte("ok"))
 	})

@@ -50,16 +50,16 @@ func TestSniffListener(t *testing.T) {
 		return string(b)
 	}
 	cl := &http.Client{Timeout: 3 * time.Second}
-	if got := get(cl, "http://127.0.0.1:"+itoa(port)+"/"); got != "plain" {
+	if got := get(cl, "http://127.0.0.1:"+portStr(port)+"/"); got != "plain" {
 		t.Fatalf("plain: %q", got)
 	}
 	pool := x509.NewCertPool()
 	c, _ := x509.ParseCertificate(der)
 	pool.AddCert(c)
 	tcl := &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: pool}}}
-	if got := get(tcl, "https://localhost:"+itoa(port)+"/"); got != "tls" {
+	if got := get(tcl, "https://localhost:"+portStr(port)+"/"); got != "tls" {
 		t.Fatalf("tls: %q", got)
 	}
 }
 
-func itoa(n int) string { return big.NewInt(int64(n)).String() }
+func portStr(n int) string { return big.NewInt(int64(n)).String() }
