@@ -70,8 +70,11 @@ a { color: #5b8cff; font-weight: 600; text-decoration: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 #toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); max-width: 90%; padding: 10px 14px; border-radius: 10px; background: rgba(30,32,40,.92); color: #fff; font-size: 14px; z-index: 5; pointer-events: none; }
 /* 全屏：工具栏变成浮层，鼠标移到最上沿才出现 */
-:fullscreen #bar { position: absolute; top: 0; left: 0; right: 0; transform: translateY(-100%); transition: transform .15s; }
-:fullscreen #bar.show { transform: none; }
+:fullscreen #bar, #remote.fs #bar { position: absolute; top: 0; left: 0; right: 0; transform: translateY(-100%); transition: transform .15s; }
+:fullscreen #bar.show, #remote.fs #bar.show { transform: none; }
+/* 手机全屏：顶部中间的小按钮，点一下显示 / 收起工具栏 */
+#fsHandle { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); z-index: 4; width: 52px; height: 26px; border: 0; border-radius: 13px;
+  background: rgba(30, 33, 42, .55); color: #fff; font-size: 18px; line-height: 26px; padding: 0; touch-action: manipulation; }
 /* 手机：名字一行，按钮一行横向滑动，不挡画面 */
 @media (max-width: 640px) {
   #bar { flex-wrap: wrap; gap: 4px 10px; padding: 4px 8px; }
@@ -82,3 +85,4 @@ a { color: #5b8cff; font-weight: 600; text-decoration: none; }
   .menu { position: static; flex: none; }
   .pop { position: fixed; top: 70px; left: 8px; right: 8px; max-height: 60vh; overflow-y: auto; z-index: 5; }
 }
+#bar.show + #stage #fsHandle { top: 66px; }

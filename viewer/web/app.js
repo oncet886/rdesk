@@ -435,6 +435,7 @@ $("#modeBtn").onclick = () => {
 
 function hideRemote() {
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  $("#remote").classList.remove("fs"); fsChanged();
   $("#remote").hidden = true; $("#login").hidden = false;
   document.title = T.title;
   const c = canvas.getContext("2d"); c.clearRect(0, 0, canvas.width, canvas.height);
@@ -447,15 +448,35 @@ $("#quality").onchange = (e) => { if (!S) return; S.quality = e.target.value; st
 $("#display").onchange = (e) => { if (!S) return; S.display = +e.target.value; S.msg(M.SETTINGS, S.settingsJSON()); canvas.focus(); };
 $("#byeBtn").onclick = () => S?.close();
 $("#pasteBtn").onclick = async () => { try { S?.text(await navigator.clipboard.readText()); } catch {} canvas.focus(); };
+// 全屏：浏览器不让真正全屏时（iPhone Safari、内嵌浏览器）退而用页面内全屏：藏起工具栏、画面占满
+const isFs = () => !!document.fullscreenElement || $("#remote").classList.contains("fs");
+function fsChanged() {
+  const fs = isFs();
+  $("#fsHandle").hidden = !(fs && COARSE);
+  if (!fs) { navigator.keyboard?.unlock?.(); screen.orientation?.unlock?.(); $("#bar").classList.remove("show"); }
+  setTimeout(placeCursor, 300);
+}
 $("#fsBtn").onclick = async () => {
   if (document.fullscreenElement) return document.exitFullscreen();
-  await $("#remote").requestFullscreen().catch(() => {});
+  if ($("#remote").classList.contains("fs")) { $("#remote").classList.remove("fs"); return fsChanged(); }
+  await $("#remote").requestFullscreen?.().catch(() => {});
+  if (!document.fullscreenElement) { $("#remote").classList.add("fs"); fsChanged(); }
   try { await navigator.keyboard?.lock(); } catch {} // 全屏时把 Esc、Win 等也交给远程
-  toast(T.fsHint);
-  canvas.focus();
+  // 手机：远程是横屏就锁成横屏，画面占满；工具栏靠顶部小按钮调出（手机没有鼠标移到顶部这回事）
+  if (COARSE && canvas.width > canvas.height) screen.orientation?.lock?.("landscape").catch(() => {});
+  toast(COARSE ? T.fsHintTouch : T.fsHint);
+  if (document.activeElement !== kbd) canvas.focus();
 };
-document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement) navigator.keyboard?.unlock?.(); });
-document.addEventListener("mousemove", (e) => { if (document.fullscreenElement) $("#bar").classList.toggle("show", e.clientY < 8 || $("#bar").matches(":hover")); });
+let barTimer = 0;
+function showBar(on) {
+  $("#bar").classList.toggle("show", on);
+  clearTimeout(barTimer);
+  if (on) barTimer = setTimeout(() => $("#bar").classList.remove("show"), 5000);
+}
+$("#fsHandle").onclick = (e) => { e.stopPropagation(); showBar(!$("#bar").classList.contains("show")); };
+$("#bar").addEventListener("pointerdown", () => { if (isFs() && COARSE) showBar(true); });
+document.addEventListener("fullscreenchange", fsChanged);
+document.addEventListener("mousemove", (e) => { if (isFs() && !COARSE) $("#bar").classList.toggle("show", e.clientY < 8 || $("#bar").matches(":hover")); });
 
 // 鼠标位置 → 被控端坐标 0...65535（画面按比例居中，四周可能有黑边）
 function remoteXY(e) {
