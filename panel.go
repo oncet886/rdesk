@@ -41,7 +41,8 @@ func registerPanel(mux *http.ServeMux) {
 			"addr": L(panel.Addr), "mode": panel.Mode, "id": cfg.ID, "password": cfg.Password,
 			"lang": langCode(), "os": runtime.GOOS,
 			"web": webSnapshot(), "update": updSnapshot(),
-			"version": version, "screen": screen, "access": access,
+			"autostart": map[string]bool{"can": autostartSupported(), "on": autostartEnabled()},
+			"version":   version, "screen": screen, "access": access,
 			"tsIP": tailscaleIP(), "tsInstalled": appErr == nil || tailscaleBin() != "",
 		})
 	})
@@ -69,6 +70,17 @@ func registerPanel(mux *http.ServeMux) {
 		}
 		if r.URL.Query().Get("check") == "1" {
 			go runUpdate(true)
+		}
+		w.Write([]byte("ok"))
+	})
+	mux.HandleFunc("/api/autostart", func(w http.ResponseWriter, r *http.Request) {
+		if !localOnly(r) || r.Method != "POST" || r.Header.Get("X-RDesk") != "1" {
+			http.Error(w, "forbidden", 403)
+			return
+		}
+		if err := setAutostart(r.URL.Query().Get("on") == "1"); err != nil {
+			http.Error(w, err.Error(), 500)
+			return
 		}
 		w.Write([]byte("ok"))
 	})

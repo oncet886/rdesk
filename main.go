@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const version = "0.2.6"
+const version = "0.2.7"
 
 func usage() {
 	fmt.Print(`rdesk ` + version + ` —— 走隧道的远程桌面（类 RustDesk）
@@ -144,6 +144,7 @@ func main() {
 
 func startHostCmd(cfg config, o hostOpts, relayURL string, forceTunnel, noTunnel bool, port int) {
 	go updateLoop()
+	autostartInit()
 	{
 		if relayURL != "" {
 			o.relayURL = normalizeRelay(relayURL, "/ws/host")
@@ -240,6 +241,8 @@ type config struct {
 	Diag     bool   `json:"diag,omitempty"` // 开发者自用：打开连接诊断
 	// 关掉自动更新（默认开）
 	NoAutoUpdate bool `json:"noAutoUpdate,omitempty"`
+	// Windows：已经按默认设置过登录时自动启动（之后以用户的选择为准）
+	AutostartAsked bool `json:"autostartAsked,omitempty"`
 }
 
 func configPath() string {

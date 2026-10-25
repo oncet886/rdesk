@@ -164,6 +164,7 @@ const TR = {
   webPending: ["正在申请证书…", "Getting a certificate…", "正在申請憑證…", "証明書を取得中…", "인증서 받는 중…", "Obteniendo el certificado…", "Obtention du certificat…", "Zertifikat wird geholt…", "Obtendo o certificado…", "Получение сертификата…"],
   webErr: ["证书申请失败：{0}", "Certificate failed: {0}", "憑證申請失敗：{0}", "証明書の取得に失敗: {0}", "인증서 실패: {0}", "Error del certificado: {0}", "Échec du certificat : {0}", "Zertifikat fehlgeschlagen: {0}", "Falha no certificado: {0}", "Ошибка сертификата: {0}"],
   copyLink: ["复制链接", "Copy Link", "拷貝連結", "リンクをコピー", "링크 복사", "Copiar enlace", "Copier le lien", "Link kopieren", "Copiar link", "Копировать ссылку"],
+  autostart: ["登录时自动启动", "Open at login", "登入時自動啟動", "ログイン時に起動", "로그인 시 자동 실행", "Abrir al iniciar sesión", "Ouvrir à la connexion", "Beim Anmelden öffnen", "Abrir ao iniciar sessão", "Открывать при входе"],
   autoUpdate: ["自动更新", "Automatic updates", "自動更新", "自動アップデート", "자동 업데이트", "Actualizaciones automáticas", "Mises à jour automatiques", "Automatische Updates", "Atualizações automáticas", "Автообновление"],
   checkUpdate: ["检查更新", "Check for Updates", "檢查更新", "アップデートを確認", "업데이트 확인", "Buscar actualizaciones", "Rechercher des mises à jour", "Nach Updates suchen", "Procurar atualizações", "Проверить обновления"],
   updateNow: ["立即更新", "Update Now", "立即更新", "今すぐアップデート", "지금 업데이트", "Actualizar ahora", "Mettre à jour", "Jetzt aktualisieren", "Atualizar agora", "Обновить сейчас"],
@@ -277,9 +278,9 @@ async function loadInfo() {
     `<span class="muted">${TR["m_" + info.mode] ? t("m_" + info.mode) : info.mode} · v${info.version}</span>`;
   renderTS();
   renderWeb(info.web || {});
-  renderUpd(info.update || {});
+  renderUpd(info.update || {}, info.autostart || {});
 }
-function renderUpd(u) {
+function renderUpd(u, as) {
   let st = "";
   if (u.state === "checking") st = `<span class="muted">${t("upChecking")}</span>`;
   else if (u.state === "latest") st = `<span class="perm-ok">✓ ${t("upLatest")}</span>`;
@@ -290,11 +291,13 @@ function renderUpd(u) {
   let btn = "";
   if (u.state === "available" && !u.can) btn = `<a href="${col === 0 || col === 2 ? "https://rdeskapp.com/#download" : "https://rdeskapp.com/en/#download"}" target="_blank" rel="noopener">${t("upManual")}</a>`;
   else if (u.state !== "checking" && u.state !== "downloading") btn = `<button class="btn small" id="updCheck">${u.state === "waiting" || u.state === "available" ? t("updateNow") : t("checkUpdate")}</button>`;
-  const h = `<label><input type="checkbox" id="updAuto"${u.auto ? " checked" : ""}> ${t("autoUpdate")}</label>${st}${btn}`;
+  const login = as.can ? `<label><input type="checkbox" id="autostart"${as.on ? " checked" : ""}> ${t("autostart")}</label>` : "";
+  const h = `${login}<label><input type="checkbox" id="updAuto"${u.auto ? " checked" : ""}> ${t("autoUpdate")}</label>${st}${btn}`;
   const el = $("upd");
   if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
 }
 document.addEventListener("change", async (e) => {
+  if (e.target.id === "autostart") { await fetch("api/autostart?on=" + (e.target.checked ? 1 : 0), { method: "POST", headers: H }); loadInfo(); }
   if (e.target.id === "updAuto") { await fetch("api/update?auto=" + (e.target.checked ? 1 : 0), { method: "POST", headers: H }); loadInfo(); }
 });
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
