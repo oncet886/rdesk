@@ -70,6 +70,7 @@
     <h1 data-t="title">RDesk 被控端</h1>
     <span class="pill" id="state" data-t="waiting">等待连接</span>
     <span class="muted" id="sub"></span>
+    <button class="btn danger small" id="kick" data-t="kick" hidden>断开控制端</button>
   </header>
 
   <section class="card conn">
@@ -162,6 +163,7 @@ const TR = {
   webPending: ["正在申请证书…", "Getting a certificate…", "正在申請憑證…", "証明書を取得中…", "인증서 받는 중…", "Obteniendo el certificado…", "Obtention du certificat…", "Zertifikat wird geholt…", "Obtendo o certificado…", "Получение сертификата…"],
   webErr: ["证书申请失败：{0}", "Certificate failed: {0}", "憑證申請失敗：{0}", "証明書の取得に失敗: {0}", "인증서 실패: {0}", "Error del certificado: {0}", "Échec du certificat : {0}", "Zertifikat fehlgeschlagen: {0}", "Falha no certificado: {0}", "Ошибка сертификата: {0}"],
   copyLink: ["复制链接", "Copy Link", "拷貝連結", "リンクをコピー", "링크 복사", "Copiar enlace", "Copier le lien", "Link kopieren", "Copiar link", "Копировать ссылку"],
+  kick: ["断开控制端", "Disconnect Viewer", "中斷控制端", "ビューアを切断", "뷰어 연결 끊기", "Desconectar visor", "Déconnecter", "Viewer trennen", "Desconectar visualizador", "Отключить клиента"],
   shareTitle: ["临时分享", "Temporary sharing", "臨時分享", "一時共有", "임시 공유", "Compartir temporalmente", "Partage temporaire", "Temporär teilen", "Compartilhamento temporário", "Временный доступ"],
   shareIdle: ["生成一个公网链接：对方用浏览器打开、输入密码就能控制这台电脑，不用装任何软件。1 小时后自动关闭。", "Creates a public link: open it in any browser and enter the password to control this computer, with nothing to install. Closes after 1 hour.", "產生一個公開連結：對方用瀏覽器開啟、輸入密碼就能控制這台電腦，不用安裝任何軟體。1 小時後自動關閉。", "公開リンクを作成します。ブラウザで開いてパスワードを入力すれば、何もインストールせずに操作できます。1 時間後に自動終了。", "공개 링크를 만듭니다. 브라우저로 열고 비밀번호를 입력하면 설치 없이 제어할 수 있습니다. 1시간 후 자동 종료.", "Crea un enlace público: ábrelo en cualquier navegador e introduce la contraseña para controlar este equipo sin instalar nada. Se cierra tras 1 hora.", "Crée un lien public : ouvrez-le dans un navigateur et saisissez le mot de passe pour contrôler cet ordinateur sans rien installer. Fermeture au bout d’1 heure.", "Erstellt einen öffentlichen Link: im Browser öffnen, Passwort eingeben, ohne Installation steuern. Endet nach 1 Stunde.", "Cria um link público: abra no navegador e digite a senha para controlar este computador sem instalar nada. Fecha após 1 hora.", "Создаёт публичную ссылку: откройте её в браузере и введите пароль — без установки программ. Закроется через 1 час."],
   shareBtn: ["开始临时分享（1 小时）", "Share for 1 Hour", "開始臨時分享（1 小時）", "1 時間共有する", "1시간 공유 시작", "Compartir 1 hora", "Partager 1 heure", "1 Stunde teilen", "Compartilhar por 1 hora", "Открыть доступ на 1 час"],
@@ -218,6 +220,7 @@ async function tick() {
   catch { $("state").textContent = t("notRunning"); $("state").className = "pill"; return; }
   $("state").textContent = d.active ? t("connected") : t("waiting");
   $("state").className = "pill" + (d.active ? " on" : "");
+  $("kick").hidden = !d.active;
   if (d.diag === false) { $("diagArea").style.display = "none"; $("sub").textContent = d.active ? t("subActive") : t("subIdle"); return; }
   $("sub").textContent = d.active ? `控制端 ${d.viewerIP} · ${d.codec || "握手中"} · 已连接 ${Math.round((Date.now() - d.since) / 1000)} 秒` : "";
 
@@ -295,6 +298,7 @@ function renderWeb(w) {
     if (share.dataset.h !== h) { share.innerHTML = h; share.dataset.h = h; }
   }
 }
+$("kick").onclick = async () => { await fetch("api/kick", { method: "POST", headers: H }); tick(); };
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("button");
   if (!b) return;

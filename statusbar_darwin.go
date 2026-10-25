@@ -35,6 +35,7 @@ const (
 	tagWeb       // 浏览器连接（Tailscale 证书）
 	tagShare     // 临时分享
 	tagShareStop // 停止临时分享
+	tagKick      // 断开当前控制端
 )
 
 // AppKit 必须跑在进程的主线程上：把 main goroutine 固定在主线程
@@ -94,6 +95,7 @@ func goMenuWillOpen() {
 	} else {
 		setItem(tagStatus, fmt.Sprintf(L("RDesk Host %s · 等待控制端连接"), version), false, false, false)
 	}
+	setItem(tagKick, L("断开当前控制端"), true, false, !active)
 	setItem(tagAddr, fmt.Sprintf(L("地址　　%s　（点击复制）"), L(panel.Addr)), true, false, false)
 	setItem(tagID, fmt.Sprintf(L("设备 ID　%s　（点击复制）"), cfg.ID), true, false, false)
 	setItem(tagPassword, L("密码　　••••••••　（点击复制，按住 ⌥ 显示）"), true, false, false)
@@ -181,6 +183,10 @@ func goMenuAction(tag C.int) {
 		}
 	case tagShareStop:
 		stopShare()
+	case tagKick:
+		if h := curHost.Load(); h != nil {
+			h.kickViewer()
+		}
 	case tagPanel:
 		openURL(diagURL)
 	case tagNewPassword:

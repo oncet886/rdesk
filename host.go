@@ -948,6 +948,21 @@ func (h *host) audioLoop(ctx context.Context, s *session) {
 
 var curHost atomic.Pointer[host]
 
+// 手动断开正在连着的控制端（菜单栏 / 控制面板）。提示用各控制端都已翻译好的「连接已断开」
+func (h *host) kickViewer() bool {
+	h.mu.Lock()
+	s := h.sess
+	h.mu.Unlock()
+	if s == nil || !s.authed {
+		return false
+	}
+	h.conn.write(websocket.BinaryMessage, append([]byte{framePlain}, "连接已断开"...))
+	h.conn.writeJSON(map[string]string{"t": "kick"})
+	log.Print(L("✋ 已手动断开控制端"))
+	h.endSession() // 停掉推流、松开按着的键
+	return true
+}
+
 // 控制面板「换新密码」：立刻生效，正在连着的控制端会被断开
 func (h *host) setPassword(pw string) error {
 	b, err := newBox(pw, h.opts.id)

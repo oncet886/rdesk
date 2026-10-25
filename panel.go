@@ -56,6 +56,16 @@ func registerPanel(mux *http.ServeMux) {
 		}
 		w.Write([]byte("ok"))
 	})
+	mux.HandleFunc("/api/kick", func(w http.ResponseWriter, r *http.Request) {
+		if !localOnly(r) || r.Method != "POST" || r.Header.Get("X-RDesk") != "1" {
+			http.Error(w, "forbidden", 403)
+			return
+		}
+		if h := curHost.Load(); h != nil {
+			h.kickViewer()
+		}
+		w.Write([]byte("ok"))
+	})
 	mux.HandleFunc("/api/share", func(w http.ResponseWriter, r *http.Request) {
 		if !localOnly(r) || r.Method != "POST" || r.Header.Get("X-RDesk") != "1" {
 			http.Error(w, "forbidden", 403)
