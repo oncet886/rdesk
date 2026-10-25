@@ -5,3 +5,7 @@ bin/
 dist/
 *.log
 .DS_Store
+
+# rdeskapp.com 站点生成物
+site/dist/
+site/.wrangler/
