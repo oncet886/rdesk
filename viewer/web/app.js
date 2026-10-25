@@ -194,6 +194,7 @@ class Session {
     renderDevices();
     showRemote(this);
     if (info.input === false) toast(T.noInput);
+    else if (matchMedia("(pointer: coarse)").matches) toast(T.touchHint); // 触屏设备：提示手势
     this.startAudio();
     this.timer = setInterval(() => this.tick(), 1000);
   }
@@ -430,18 +431,72 @@ function remoteXY(e) {
 let lastMove = 0;
 canvas.addEventListener("pointermove", (e) => {
   if (!S?.connected) return;
+  if (e.pointerType === "touch") return touchMove(e);
   const now = performance.now(); if (now - lastMove < 4) return; lastMove = now; // 最多 250 次/秒
   S.move(...remoteXY(e));
 });
 canvas.addEventListener("pointerdown", (e) => {
   if (!S?.connected) return;
-  canvas.focus(); canvas.setPointerCapture(e.pointerId);
-  const [x, y] = remoteXY(e); S.move(x, y); S.button(e.button, true, x, y); e.preventDefault();
+  canvas.focus();
+  try { canvas.setPointerCapture(e.pointerId); } catch {}
+  e.preventDefault();
+  if (e.pointerType === "touch") return touchDown(e);
+  const [x, y] = remoteXY(e); S.move(x, y); S.button(e.button, true, x, y);
 });
 canvas.addEventListener("pointerup", (e) => {
   if (!S?.connected) return;
-  const [x, y] = remoteXY(e); S.button(e.button, false, x, y); e.preventDefault();
+  e.preventDefault();
+  if (e.pointerType === "touch") return touchUp(e, true);
+  const [x, y] = remoteXY(e); S.button(e.button, false, x, y);
 });
+canvas.addEventListener("pointercancel", (e) => { if (S?.connected && e.pointerType === "touch") touchUp(e, false); });
+
+// 触屏（手机 / 平板浏览器）：点哪按哪；按住 0.5 秒不动 = 右键；双指轻点 = 右键；单指拖 = 拖拽（和 App 的触控模式一样）
+const tc = { fingers: new Set(), id: null, x: 0, y: 0, cx: 0, cy: 0, timer: 0, down: false, done: false, two: 0, twoMoved: false };
+function touchDown(e) {
+  tc.fingers.add(e.pointerId);
+  if (tc.fingers.size === 2) { // 第二根手指：取消单指动作，准备双指轻点
+    clearTimeout(tc.timer);
+    if (tc.down) { S.button(0, false, tc.x, tc.y); tc.down = false; }
+    tc.done = true; tc.two = performance.now(); tc.twoMoved = false;
+    return;
+  }
+  if (tc.fingers.size > 2) return;
+  [tc.x, tc.y] = remoteXY(e); tc.cx = e.clientX; tc.cy = e.clientY;
+  tc.id = e.pointerId; tc.down = false; tc.done = false; tc.two = 0;
+  tc.timer = setTimeout(() => { // 按住不动 = 右键
+    if (tc.down || tc.done) return;
+    tc.done = true;
+    S.move(tc.x, tc.y); S.button(2, true, tc.x, tc.y); S.button(2, false, tc.x, tc.y);
+    navigator.vibrate?.(15);
+  }, 500);
+}
+function touchMove(e) {
+  if (tc.two) { if (Math.hypot(e.clientX - tc.cx, e.clientY - tc.cy) > 12) tc.twoMoved = true; return; }
+  if (e.pointerId !== tc.id || tc.done) return;
+  if (!tc.down) {
+    if (Math.hypot(e.clientX - tc.cx, e.clientY - tc.cy) < 10) return;
+    clearTimeout(tc.timer); // 拖动了：从按下的位置开始拖拽
+    S.move(tc.x, tc.y); S.button(0, true, tc.x, tc.y); tc.down = true;
+  }
+  const now = performance.now(); if (now - lastMove < 4) return; lastMove = now;
+  [tc.x, tc.y] = remoteXY(e); S.move(tc.x, tc.y);
+}
+function touchUp(e, ok) {
+  tc.fingers.delete(e.pointerId);
+  if (tc.two) { // 双指轻点：两根手指都抬起、没怎么动、时间短
+    if (tc.fingers.size === 0) {
+      if (ok && !tc.twoMoved && performance.now() - tc.two < 350) { S.move(tc.x, tc.y); S.button(2, true, tc.x, tc.y); S.button(2, false, tc.x, tc.y); }
+      tc.two = 0;
+    }
+    return;
+  }
+  if (e.pointerId !== tc.id) return;
+  clearTimeout(tc.timer);
+  if (tc.down) { S.button(0, false, tc.x, tc.y); tc.down = false; }
+  else if (!tc.done && ok) { S.move(tc.x, tc.y); S.button(0, true, tc.x, tc.y); S.button(0, false, tc.x, tc.y); }
+  tc.done = true;
+}
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 let wheelRest = [0, 0];
 canvas.addEventListener("wheel", (e) => {
