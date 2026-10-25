@@ -3,10 +3,11 @@
 package main
 
 /*
-#cgo LDFLAGS: -framework CoreGraphics -framework ApplicationServices -framework CoreFoundation -framework AppKit
+#cgo LDFLAGS: -framework CoreGraphics -framework ApplicationServices -framework CoreFoundation -framework AppKit -framework Carbon
 #include <CoreGraphics/CoreGraphics.h>
 #include <ApplicationServices/ApplicationServices.h>
 #import <AppKit/AppKit.h>
+#include <Carbon/Carbon.h>
 #include <stdlib.h>
 #include <math.h>
 
@@ -88,6 +89,41 @@ static int cursorShape(uint8_t **out, double *w, double *h, double *hx, double *
 		memcpy(*out, png.bytes, png.length);
 		return (int)png.length;
 	}
+}
+
+// 最前面是虚拟机 / 远程桌面程序吗？它们只认按键编号，不认附带的文字
+static int frontWantsKeycodes(void) {
+	@autoreleasepool {
+		NSString *b = NSWorkspace.sharedWorkspace.frontmostApplication.bundleIdentifier;
+		if (!b) return 0;
+		for (NSString *p in @[@"com.vmware.fusion", @"com.parallels.", @"com.utmapp.", @"org.virtualbox.",
+		                      @"com.microsoft.rdc", @"com.carriez.rustdesk", @"com.citrix."]) {
+			if ([b hasPrefix:p]) return 1;
+		}
+		return 0;
+	}
+}
+
+// 字符 → 当前键盘布局下的按键编号（是否要按 Shift）。找不到返回 -1
+static int keyForChar(UniChar ch, int *shift) {
+	TISInputSourceRef ref = TISCopyCurrentKeyboardLayoutInputSource();
+	if (!ref) return -1;
+	CFDataRef data = (CFDataRef)TISGetInputSourceProperty(ref, kTISPropertyUnicodeKeyLayoutData);
+	int found = -1;
+	if (data) {
+		const UCKeyboardLayout *layout = (const UCKeyboardLayout *)CFDataGetBytePtr(data);
+		for (int mod = 0; mod < 2 && found < 0; mod++) {
+			for (int code = 0; code < 128; code++) {
+				UInt32 dead = 0; UniChar out[4]; UniCharCount n = 0;
+				if (UCKeyTranslate(layout, code, kUCKeyActionDown, mod ? (shiftKey >> 8) & 0xff : 0, LMGetKbdType(),
+				                   kUCKeyTranslateNoDeadKeysMask, &dead, 4, &n, out) == noErr && n == 1 && out[0] == ch) {
+					found = code; *shift = mod; break;
+				}
+			}
+		}
+	}
+	CFRelease(ref);
+	return found;
 }
 
 static void postUnicode(const UniChar *s, int n) {
@@ -313,7 +349,37 @@ func keyEvent(code string, down bool) {
 func typeText(s string) {
 	in.Lock()
 	defer in.Unlock()
+	keycodes := C.frontWantsKeycodes() == 1
 	for i, line := range strings.Split(s, "\n") {
+		if keycodes { // 虚拟机里：逐个字符按真实的键（中文等找不到按键的字符照旧发文字）
+			if i > 0 {
+				C.postKey(0x24, 1, 0)
+				C.postKey(0x24, 0, 0)
+			}
+			for _, r := range line {
+				var shift C.int
+				code := C.int(-1)
+				if r < 0x10000 {
+					code = C.keyForChar(C.UniChar(r), &shift)
+				}
+				if code < 0 {
+					u := utf16.Encode([]rune{r})
+					C.postUnicode((*C.UniChar)(unsafe.Pointer(&u[0])), C.int(len(u)))
+					continue
+				}
+				var flags C.ulonglong
+				if shift == 1 {
+					flags = flagShift
+					C.postKey(0x38, 1, flags)
+				}
+				C.postKey(code, 1, flags)
+				C.postKey(code, 0, flags)
+				if shift == 1 {
+					C.postKey(0x38, 0, 0)
+				}
+			}
+			continue
+		}
 		if i > 0 {
 			C.postKey(0x24, 1, 0)
 			C.postKey(0x24, 0, 0)
@@ -378,4 +444,11 @@ var macKeys = map[string]int{
 	"F15": 0x71, "Insert": 0x72, "Help": 0x72, "Home": 0x73, "PageUp": 0x74, "Delete": 0x75,
 	"F4": 0x76, "End": 0x77, "F2": 0x78, "PageDown": 0x79, "F1": 0x7A, "ArrowLeft": 0x7B,
 	"ArrowRight": 0x7C, "ArrowDown": 0x7D, "ArrowUp": 0x7E,
+}
+
+// 字符在当前键盘布局下的按键编号和是否要 Shift（测试用）
+func keyFor(r rune) (code int, shift bool, ok bool) {
+	var sh C.int
+	c := C.keyForChar(C.UniChar(r), &sh)
+	return int(c), sh == 1, c >= 0
 }
