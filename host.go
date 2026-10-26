@@ -85,6 +85,7 @@ type session struct {
 	set       settings
 	setCh     chan settings
 	bounds    image.Rectangle // 当前显示器在全局坐标中的范围（输入映射用）
+	disp      int             // 正在推流的显示器（光标循环据此刷新屏幕范围）
 	btnDown   int
 	video     bool        // 本次会话用 H.264
 	audio     atomic.Bool // 现在要不要发声音（控制端可随时静音）
@@ -395,7 +396,7 @@ func (h *host) streamVideo(ctx context.Context, s *session) {
 	abr := &abrCtl{fc: fc}
 	start := func() bool {
 		h.mu.Lock()
-		s.bounds = screenshot.GetDisplayBounds(set.Display)
+		s.bounds, s.disp = screenshot.GetDisplayBounds(set.Display), set.Display
 		h.mu.Unlock()
 		// 手机屏幕显示不了更宽的画面，宽了只会让编码变慢（2560 宽每帧 25ms，1920 宽 8ms）
 		abr.reset(kbpsFor(set))
@@ -528,7 +529,7 @@ func (h *host) stream(ctx context.Context, s *session) {
 		}
 
 		h.mu.Lock()
-		s.bounds = screenshot.GetDisplayBounds(set.Display)
+		s.bounds, s.disp = screenshot.GetDisplayBounds(set.Display), set.Display
 		h.mu.Unlock()
 		if !configured {
 			if err := cap.configure(set.Display, set.MaxW, set.FPS); err != nil {
@@ -764,6 +765,19 @@ func (h *host) cursorLoop(ctx context.Context, s *session) {
 		x, y, ok := cursorPos()
 		if !ok {
 			return
+		}
+		// 连接期间屏幕分辨率可能变（改虚拟机窗口大小、换显示设置、接显示器）：每半秒重新读一次屏幕范围，
+		// 否则鼠标还按旧尺寸换算，点不准
+		if tick%30 == 0 {
+			h.mu.Lock()
+			disp := s.disp
+			h.mu.Unlock()
+			nb := screenshot.GetDisplayBounds(disp)
+			h.mu.Lock()
+			if !nb.Empty() && nb != s.bounds {
+				s.bounds = nb
+			}
+			h.mu.Unlock()
 		}
 		h.mu.Lock()
 		b := s.bounds

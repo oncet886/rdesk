@@ -48,6 +48,8 @@ func TestDrive(t *testing.T) {
 	var canvas *image.RGBA
 	var frameN, shapeN int
 	var lastShape []byte
+	var curX, curY uint16 // 被控端报告的光标位置 0...65535
+	var frameW, frameH int
 	ready := make(chan struct{})
 	go func() {
 		for {
@@ -57,7 +59,11 @@ func TestDrive(t *testing.T) {
 			}
 			if mt == websocket.TextMessage {
 				if string(data) == `{"t":"paired"}` {
-					send(append([]byte{msgHello}, []byte(`{"q":80,"maxw":1920,"fps":15}`)...))
+					hello := `{"q":80,"maxw":1920,"fps":15}`
+					if os.Getenv("RDESK_H264") == "1" { // 视频模式（和 App 一样）：不能截图，但能测光标换算
+						hello = `{"q":80,"maxw":1920,"fps":15,"h264":true}`
+					}
+					send(append([]byte{msgHello}, []byte(hello)...))
 				}
 				continue
 			}
@@ -86,8 +92,18 @@ func TestDrive(t *testing.T) {
 					o += l
 				}
 				frameN++
+				frameW, frameH = W, H
 				mu.Unlock()
 				send([]byte{msgAck})
+			case msgVideo:
+				mu.Lock()
+				frameW, frameH = int(binary.BigEndian.Uint16(p[5:])), int(binary.BigEndian.Uint16(p[7:]))
+				frameN++
+				mu.Unlock()
+			case msgCursor:
+				mu.Lock()
+				curX, curY = binary.BigEndian.Uint16(p[1:]), binary.BigEndian.Uint16(p[3:])
+				mu.Unlock()
 			case msgCursorShape:
 				mu.Lock()
 				shapeN++
@@ -106,10 +122,13 @@ func TestDrive(t *testing.T) {
 	xy := func(x, y int) (uint16, uint16) {
 		mu.Lock()
 		defer mu.Unlock()
-		if canvas == nil {
+		w, h := frameW, frameH // 视频模式没有画布，用视频帧尺寸
+		if canvas != nil {
+			w, h = canvas.Rect.Dx(), canvas.Rect.Dy()
+		}
+		if w == 0 {
 			return 0, 0
 		}
-		w, h := canvas.Rect.Dx(), canvas.Rect.Dy()
 		return uint16(x * 65535 / max(w-1, 1)), uint16(y * 65535 / max(h-1, 1))
 	}
 	move := func(x, y int) {
@@ -233,6 +252,10 @@ func TestDrive(t *testing.T) {
 			}
 		case "text":
 			send(append([]byte{msgText}, rest...))
+		case "pos": // 发出的位置和被控端报告的光标位置对比（像素）
+			mu.Lock()
+			t.Logf("画面 %dx%d，光标在 %.1f, %.1f", frameW, frameH, float64(curX)*float64(frameW-1)/65535, float64(curY)*float64(frameH-1)/65535)
+			mu.Unlock()
 		case "cursor":
 			mu.Lock()
 			t.Logf("光标样子消息 %d 条", shapeN)
