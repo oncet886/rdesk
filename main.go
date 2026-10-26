@@ -15,10 +15,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"time"
 )
 
-const version = "0.2.12"
+const version = "0.2.13"
 
 func usage() {
 	fmt.Print(`rdesk ` + version + ` —— 走隧道的远程桌面（类 RustDesk）
@@ -99,6 +100,14 @@ func main() {
 		port := fs.Int("port", 0, "本地中继端口")
 		noMenubar := fs.Bool("no-menubar", false, "不显示菜单栏图标")
 		fs.Parse(args)
+		// Windows 托盘版：已经在运行就打开它的控制面板（再双击 exe 不会开第二个）；日志写到文件
+		if runtime.GOOS == "windows" && !*noMenubar {
+			if alreadyRunning() {
+				openURL(fmt.Sprintf("http://127.0.0.1:%d", diagPort))
+				os.Exit(0)
+			}
+			trayLogInit()
+		}
 
 		cfg := loadConfig()
 		firstRun := cfg.ID == ""
@@ -128,8 +137,8 @@ func main() {
 		o := hostOpts{id: cfg.ID, password: cfg.Password, key: *key}
 		diagURL = startDiag()
 		// 第一次打开才自动弹出控制面板；之后从菜单栏图标进
-		if os.Getenv("RDESK_APP") == "1" && diagURL != "" && firstRun {
-			go func() { time.Sleep(800 * time.Millisecond); exec.Command("open", diagURL).Run() }()
+		if (os.Getenv("RDESK_APP") == "1" || runtime.GOOS == "windows") && diagURL != "" && firstRun {
+			go func() { time.Sleep(800 * time.Millisecond); openURL(diagURL) }()
 		}
 		run := func() { startHostCmd(cfg, o, *relayURL, *forceTunnel, *noTunnel, *port) }
 		// 菜单栏图标要占主线程：远程逻辑放到后台
@@ -378,15 +387,22 @@ func portBusy(ip string, port int) bool {
 }
 
 // 双击「RDesk Host.app」启动：已经在运行就只打开控制面板；否则日志写到 ~/Library/Logs/RDesk/
-func appMode() {
+// 本机已经有一个被控端在运行（控制面板端口回应 rdesk）
+func alreadyRunning() bool {
 	c := http.Client{Timeout: 500 * time.Millisecond}
-	if r, err := c.Get(fmt.Sprintf("http://127.0.0.1:%d/api/ping", diagPort)); err == nil {
-		b, _ := io.ReadAll(r.Body)
-		r.Body.Close()
-		if string(b) == "rdesk" {
-			exec.Command("open", fmt.Sprintf("http://127.0.0.1:%d", diagPort)).Run()
-			os.Exit(0)
-		}
+	r, err := c.Get(fmt.Sprintf("http://127.0.0.1:%d/api/ping", diagPort))
+	if err != nil {
+		return false
+	}
+	b, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	return string(b) == "rdesk"
+}
+
+func appMode() {
+	if alreadyRunning() {
+		exec.Command("open", fmt.Sprintf("http://127.0.0.1:%d", diagPort)).Run()
+		os.Exit(0)
 	}
 	if home, err := os.UserHomeDir(); err == nil {
 		dir := filepath.Join(home, "Library", "Logs", "RDesk")

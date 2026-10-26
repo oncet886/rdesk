@@ -78,7 +78,7 @@ func applyUpdate(zipPath string) error {
 	cmd := exec.Command(exe, os.Args[1:]...)
 	cmd.Dir, _ = os.Getwd()
 	cmd.Env = append(os.Environ(), "RDESK_WAIT_PID="+strconv.Itoa(os.Getpid()))
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x00000010} // CREATE_NEW_CONSOLE：新版自己的窗口
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x00000008} // DETACHED_PROCESS：托盘程序不需要控制台
 	if err := cmd.Start(); err != nil {
 		os.Rename(exe, newExe)
 		os.Rename(exe+".old", exe)

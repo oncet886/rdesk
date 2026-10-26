@@ -396,6 +396,7 @@ func fileExists(p string) bool {
 // 退出前关掉隧道（cloudflared 是子进程，不关会留在后台）
 func exitApp(code int) {
 	stopShare()
+	beforeExit()
 	os.Exit(code)
 }
 
