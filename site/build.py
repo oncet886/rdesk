@@ -16,11 +16,11 @@ APP_STORE = None   # "https://apps.apple.com/app/id6826686347"
 GOOGLE_PLAY = None  # "https://play.google.com/store/apps/details?id=com.gphdigital.rdesk"
 
 T = {
-    "zh": dict(lang="zh-Hans", home="/", nav=[("/#features", "功能"), ("/#download", "下载"), ("/#start", "使用方法"), ("/privacy/", "隐私")],
+    "zh": dict(lang="zh-Hans", home="/", nav=[("/#features", "功能"), ("/#download", "下载"), ("/web/", "网页版"), ("/#start", "使用方法"), ("/privacy/", "隐私")],
                other=("/en/", "English"), skip="跳到正文", theme="切换外观", menu="打开导航",
                foot="用手机或电脑远程控制你自己的电脑。Tailscale 直连、端到端加密。",
                legal="隐私政策", contact="联系我们", source="源代码", company="© 2026 GPH Digital LLC · 美国亚利桑那州"),
-    "en": dict(lang="en", home="/en/", nav=[("/en/#features", "Features"), ("/en/#download", "Download"), ("/en/#start", "Get started"), ("/privacy/#en", "Privacy")],
+    "en": dict(lang="en", home="/en/", nav=[("/en/#features", "Features"), ("/en/#download", "Download"), ("/web/", "Web app"), ("/en/#start", "Get started"), ("/privacy/#en", "Privacy")],
                other=("/", "中文"), skip="Skip to main content", theme="Change color theme", menu="Open navigation",
                foot="Control your own computer from your phone or another computer. Direct over Tailscale, end-to-end encrypted.",
                legal="Privacy Policy", contact="Contact", source="Source code", company="© 2026 GPH Digital LLC · Arizona, USA"),
@@ -96,9 +96,9 @@ def shell(lang, path, title, desc, body):
 """
 
 
-def platform(name, desc, status, href=None, button=None, ok=False):
+def platform(name, desc, status, href=None, button=None, ok=False, icon=None):
     pill = f'<span class="pill{" ok" if ok else ""}">{status}</span>'
-    btn = f'<a class="button button-primary" href="{href}" rel="noopener">{DL}{button}</a>' if href else ""
+    btn = f'<a class="button button-primary" href="{href}" rel="noopener">{DL if icon is None else icon}{button}</a>' if href else ""
     return f'<div class="platform">{pill}<h3>{name}</h3><p>{desc}</p>{btn}</div>'
 
 
@@ -113,6 +113,7 @@ def downloads(lang):
         hosts = (platform("Mac 被控端 · RDesk Host", "macOS 14 及以上，Apple 芯片和 Intel 通用。开源免费，已通过 Apple 公证。", "可下载", GH_LATEST, "免费下载", ok=True)
                  + platform("Windows 被控端", "Windows 10 / 11（x64 和 ARM64）。测试版，暂未数字签名，第一次运行需在提示里点「仍要运行」。", "测试版", GH_LATEST, "免费下载", ok=True))
         ctrls = ios + android + platform("Mac 控制端", "macOS 14 及以上。在 Mac 上控制另一台电脑，键盘鼠标直接转发，连 Windows 时 ⌘ 自动当 Ctrl。", "测试版", GH_LATEST, "免费下载", ok=True) + platform("Windows 控制端", "Windows 10 / 11（x64 和 ARM64）。双击打开独立窗口，可控制 Mac 和 Windows，连 Mac 时 Ctrl 自动当 ⌘。测试版，暂未数字签名。", "测试版", GH_LATEST, "免费下载", ok=True)
+        ctrls += platform("网页版 · 浏览器", "不用安装，用 Chrome、Edge、Safari 打开就能控制，手机和电脑浏览器都能用。被控端菜单里复制「浏览器连接」或「临时分享」链接，打开后输入密码即可。", "可直接用", "/web/", "打开网页版", ok=True, icon="")
         return f"""<section class="app-section" id="download"><div class="container">
   <p class="eyebrow">下载</p><h2>被控端装在要被控制的电脑上，<em>控制端装在你手上的设备。</em></h2>
   <p class="role">被控端 · 要被控制的电脑</p><div class="platforms">{hosts}</div>
@@ -121,6 +122,7 @@ def downloads(lang):
     hosts = (platform("Mac host · RDesk Host", "macOS 14 or later, Apple silicon and Intel. Free, open source and notarized by Apple.", "Available", GH_LATEST, "Free download", ok=True)
              + platform("Windows host", "Windows 10 / 11 (x64 and ARM64). Beta, not code-signed yet: choose \"Run anyway\" on first launch.", "Beta", GH_LATEST, "Free download", ok=True))
     ctrls = ios + android + platform("Mac viewer", "macOS 14 or later. Control another computer with your own keyboard and mouse; ⌘ maps to Ctrl on Windows.", "Beta", GH_LATEST, "Free download", ok=True) + platform("Windows viewer", "Windows 10 / 11 (x64 and ARM64). Opens its own window and controls Macs and PCs; Ctrl acts as ⌘ on a Mac. Beta, not code-signed yet.", "Beta", GH_LATEST, "Free download", ok=True)
+    ctrls += platform("Web app · browser", "Nothing to install: open it in Chrome, Edge or Safari on a phone or computer. Copy the \"Browser link\" or \"Temporary sharing\" link from the host menu, open it and enter the password.", "Ready to use", "/web/", "Open web app", ok=True, icon="")
     return f"""<section class="app-section" id="download"><div class="container">
   <p class="eyebrow">Download</p><h2>Install the host on the computer you control, <em>the app on the device in your hand.</em></h2>
   <p class="role">HOST · THE COMPUTER BEING CONTROLLED</p><div class="platforms">{hosts}</div>
@@ -136,7 +138,7 @@ ZH = f"""<section class="app-hero"><div class="container app-hero-grid">
   <div class="app-hero-media phone"><div class="device-phone"><img src="/assets/rdesk-iphone-start.jpg" width="900" height="1957" alt="iPhone 上的 RDesk 远控：Tailscale 已连接、三步开始，以及地址、设备 ID、密码输入框" fetchpriority="high"></div></div>
 </div></section>
 <section class="section-tight hairline"><div class="container"><dl class="facts app-facts">
-  <div><dt>控制端</dt><dd>iPhone / iPad、安卓、Mac、Windows</dd></div>
+  <div><dt>控制端</dt><dd>iPhone / iPad、安卓、Mac、Windows、<a class="textlink" href="/web/">浏览器</a></dd></div>
   <div><dt>被控端</dt><dd>Mac（macOS 14+）、Windows 10 / 11</dd></div>
   <div><dt>连接</dt><dd>Tailscale 点对点直连，不经过中转</dd></div>
   <div><dt>语言</dt><dd>简体中文、繁體中文、English、日本語、한국어 等 10 种，跟随系统</dd></div>
@@ -157,9 +159,9 @@ ZH = f"""<section class="app-hero"><div class="container app-hero-grid">
   <div class="phone-row"><div class="device-phone"><img src="/assets/rdesk-iphone-light.jpg" width="900" height="1957" alt="RDesk 远控白天模式的开始页面，带三步上手说明" loading="lazy"></div><div class="device-phone"><img src="/assets/rdesk-iphone-tailscale.jpg" width="900" height="1957" alt="RDesk 远控提示没检测到 Tailscale，并提供下载按钮" loading="lazy"></div></div>
   <div><h2>三步 <em>开始使用。</em></h2>
     <ol class="lead" style="margin-top:18px;padding-left:1.2em;line-height:1.8">
-      <li>在要被控制的电脑上下载 <a class="textlink" href="{GH_LATEST}" rel="noopener">RDesk Host</a>。Mac：拖进「应用程序」并打开，允许「屏幕录制」和「辅助功能」，菜单栏图标里能看到地址、设备 ID 和密码；Windows：解压后双击 rdesk.exe，窗口里会显示这三项。</li>
+      <li>在要被控制的电脑上下载 <a class="textlink" href="{GH_LATEST}" rel="noopener">RDesk Host</a>。Mac：拖进「应用程序」并打开，允许「屏幕录制」和「辅助功能」，菜单栏图标里能看到地址、设备 ID 和密码；Windows：解压后双击 rdesk.exe，它在任务栏右下角托盘里运行，第一次会自动打开控制面板显示这三项。</li>
       <li>电脑和手机都安装 <a class="textlink" href="https://tailscale.com/download" rel="noopener">Tailscale</a>，登录同一个账号（个人使用免费）。</li>
-      <li>打开手机上的 RDesk 远控，填入地址、设备 ID、密码，点「连接」。</li>
+      <li>打开手机上的 RDesk 远控，填入地址、设备 ID、密码，点「连接」。没装 App 也可以用<a class="textlink" href="/web/">网页版</a>。</li>
     </ol>
     <p class="muted" style="margin-top:14px;font-size:15px">App 会自动检测 Tailscale，没连上会提示你怎么做。</p>
   </div>
@@ -174,7 +176,7 @@ EN = f"""<section class="app-hero"><div class="container app-hero-grid">
   <div class="app-hero-media phone"><div class="device-phone"><img src="/assets/rdesk-iphone-start.jpg" width="900" height="1957" alt="RDesk on iPhone: Tailscale connected, three setup steps, and fields for address, device ID and password" fetchpriority="high"></div></div>
 </div></section>
 <section class="section-tight hairline"><div class="container"><dl class="facts app-facts">
-  <div><dt>Viewer</dt><dd>iPhone / iPad, Android, Mac, Windows</dd></div>
+  <div><dt>Viewer</dt><dd>iPhone / iPad, Android, Mac, Windows, <a class="textlink" href="/web/">browser</a></dd></div>
   <div><dt>Host</dt><dd>Mac (macOS 14+), Windows 10 / 11</dd></div>
   <div><dt>Connection</dt><dd>Peer to peer over Tailscale, no relay</dd></div>
   <div><dt>Languages</dt><dd>English, 中文, 日本語, 한국어, Español, Français, Deutsch, Português, Русский. Follows your system</dd></div>
@@ -195,9 +197,9 @@ EN = f"""<section class="app-hero"><div class="container app-hero-grid">
   <div class="phone-row"><div class="device-phone"><img src="/assets/rdesk-iphone-light.jpg" width="900" height="1957" alt="RDesk start screen in light mode with three setup steps" loading="lazy"></div><div class="device-phone"><img src="/assets/rdesk-iphone-tailscale.jpg" width="900" height="1957" alt="RDesk telling you Tailscale is not connected, with a button to get it" loading="lazy"></div></div>
   <div><h2>Three steps <em>to start.</em></h2>
     <ol class="lead" style="margin-top:18px;padding-left:1.2em;line-height:1.8">
-      <li>On the computer you want to control, download <a class="textlink" href="{GH_LATEST}" rel="noopener">RDesk Host</a>. Mac: move it to Applications, open it and allow Screen Recording and Accessibility; the menu bar icon shows the address, device ID and password. Windows: unzip and double-click rdesk.exe; its window shows the same three items.</li>
+      <li>On the computer you want to control, download <a class="textlink" href="{GH_LATEST}" rel="noopener">RDesk Host</a>. Mac: move it to Applications, open it and allow Screen Recording and Accessibility; the menu bar icon shows the address, device ID and password. Windows: unzip and double-click rdesk.exe; it runs in the notification area and the first run opens the control panel with the same three items.</li>
       <li>Install <a class="textlink" href="https://tailscale.com/download" rel="noopener">Tailscale</a> on both devices and sign in to the same account (free for personal use).</li>
-      <li>Open RDesk on your phone, enter the address, device ID and password, and tap Connect. The interface is in Simplified Chinese.</li>
+      <li>Open RDesk on your phone, enter the address, device ID and password, and tap Connect. No app installed? Use the <a class="textlink" href="/web/">web app</a>.</li>
     </ol>
   </div>
 </div></section>
