@@ -60,9 +60,10 @@ func viewerLink(server string) string {
 }
 
 type webInfo struct {
-	Link       string `json:"link,omitempty"`    // Tailscale 证书版链接
-	CertErr    string `json:"certErr,omitempty"` // https-off / pending / 失败原因
-	Share      string `json:"share,omitempty"`   // 临时分享链接
+	Link       string `json:"link,omitempty"`      // Tailscale 证书版链接
+	CertErr    string `json:"certErr,omitempty"`   // https-off / pending / 失败原因
+	Share      string `json:"share,omitempty"`     // 临时分享链接
+	ShareAddr  string `json:"shareAddr,omitempty"` // App 里要填的地址
 	ShareUntil int64  `json:"shareUntil,omitempty"`
 	ShareBusy  bool   `json:"shareBusy,omitempty"`
 	ShareErr   string `json:"shareErr,omitempty"`
@@ -78,6 +79,7 @@ func webSnapshot() webInfo {
 	}
 	if web.shareURL != "" {
 		w.Share = viewerLink(strings.TrimPrefix(web.shareURL, "https://"))
+		w.ShareAddr = strings.TrimPrefix(web.shareURL, "https://")
 		w.ShareUntil = web.shareUntil.UnixMilli()
 	}
 	return w

@@ -163,7 +163,7 @@ ZH = f"""<section class="app-hero"><div class="container app-hero-grid">
       <li>让手机和电脑连接同一个 Wi-Fi。不在同一网络时，用被控端的「临时分享」链接；也可以自行使用 <a class="textlink" href="https://tailscale.com/download" rel="noopener">Tailscale</a>（可选）。</li>
       <li>打开手机上的 RDesk 远控，填入地址、设备 ID、密码，点「连接」。没装 App 也可以用<a class="textlink" href="/web/">网页版</a>。</li>
     </ol>
-    <p class="muted" style="margin-top:14px;font-size:15px">还没装电脑端？打开 App 点「试用演示」，先用内置的模拟电脑体验一下。</p>
+    <p class="muted" style="margin-top:14px;font-size:15px">还没装电脑端？iPhone / iPad 版可以点「试用演示」，先用内置的模拟电脑体验一下。</p>
   </div>
 </div></section>
 <section class="section-tight"><div class="container"><div class="band"><div><p class="eyebrow">有问题？</p><h2>需要帮助或想要 <em>新功能？</em></h2></div><a class="button button-primary" href="mailto:{MAIL}?subject=RDesk">发邮件给我们</a></div></div></section>"""
