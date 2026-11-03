@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-const version = "0.2.14"
+const version = "0.2.15"
 
 func usage() {
 	fmt.Print(`rdesk ` + version + ` —— 走隧道的远程桌面（类 RustDesk）
@@ -160,12 +160,19 @@ func startHostCmd(cfg config, o hostOpts, relayURL string, forceTunnel, noTunnel
 			panel = panelState{Addr: httpURL(relayURL), Mode: "relay"}
 			banner(cfg, httpURL(relayURL))
 		} else {
-			// 没有 Tailscale 也没装 cloudflared：等 Tailscale 打开（控制面板会提示下载/打开），打开后自动直连
-			if tailscaleIP() == "" && !forceTunnel && !noTunnel && findCloudflared() == "" {
-				panel = panelState{Addr: "等待 Tailscale 连接…", Mode: "waiting"}
-				log.Print(L("没检测到 Tailscale，请安装并登录 Tailscale：https://tailscale.com/download （打开后会自动继续）"))
-				for tailscaleIP() == "" {
-					time.Sleep(3 * time.Second)
+			// 内置中继的注册密钥：只有本机的被控端知道，别人连上端口（局域网、临时分享）也冒充不了被控端
+			o.key = randFrom("abcdefghijklmnopqrstuvwxyz0123456789", 32)
+			// 没连上 Tailscale：已安装就等一会儿（开机时它可能还没起来），之后用局域网直连。Tailscale 是可选的
+			if tailscaleIP() == "" && !forceTunnel && !noTunnel {
+				if tailscaleInstalled() {
+					panel = panelState{Addr: "等待 Tailscale 连接…", Mode: "waiting"}
+					for i := 0; i < 20 && tailscaleIP() == ""; i++ {
+						time.Sleep(3 * time.Second)
+					}
+				}
+				if tailscaleIP() == "" {
+					runLAN(cfg, o, port)
+					return
 				}
 			}
 			// Tailscale 直连：只监听 Tailscale 网卡，控制端在同一个 tailnet 里点对点直连，没有中转
@@ -184,7 +191,7 @@ func startHostCmd(cfg config, o hostOpts, relayURL string, forceTunnel, noTunnel
 				if err != nil {
 					log.Fatalf("监听 %s 失败: %v（端口被占用可加 -port 换一个）", addr, err)
 				}
-				serveTailscale(ln, newRelay("").handler(), pt)
+				serveTailscale(ln, addr, newRelay(o.key).handler(), pt)
 				o.relayURL = "ws://" + addr + "/ws/host"
 				log.Print(L("Tailscale 直连模式（不经过任何中转服务器）"))
 				panel = panelState{Addr: addr, Mode: "tailscale"}
@@ -198,7 +205,7 @@ func startHostCmd(cfg config, o hostOpts, relayURL string, forceTunnel, noTunnel
 				log.Fatal(err)
 			}
 			p := ln.Addr().(*net.TCPAddr).Port
-			srv := &http.Server{Handler: newRelay("").handler(), ReadHeaderTimeout: 10 * time.Second}
+			srv := &http.Server{Handler: newRelay(o.key).handler(), ReadHeaderTimeout: 10 * time.Second}
 			go srv.Serve(ln)
 			o.relayURL = fmt.Sprintf("ws://127.0.0.1:%d/ws/host", p)
 			local := fmt.Sprintf("http://localhost:%d", p)
@@ -358,6 +365,9 @@ func runTunnel(port int, onURL func(string)) {
 
 // 找本机的 Tailscale 地址（100.64.0.0/10）
 func tailscaleIP() string {
+	if os.Getenv("RDESK_NO_TS") == "1" { // 测试局域网模式用
+		return ""
+	}
 	_, cgnat, _ := net.ParseCIDR("100.64.0.0/10")
 	ifs, _ := net.Interfaces()
 	for _, i := range ifs {

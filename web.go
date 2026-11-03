@@ -86,9 +86,9 @@ func webSnapshot() webInfo {
 // ---------------- Tailscale 证书 ----------------
 
 // 在 Tailscale 直连端口上启动 http 服务：TLS 和明文共用一个端口
-func serveTailscale(ln net.Listener, h http.Handler, port int) {
+func serveTailscale(ln net.Listener, local string, h http.Handler, port int) {
 	web.mu.Lock()
-	web.local = ln.Addr().String()
+	web.local = local
 	web.certErr = certPending
 	web.mu.Unlock()
 	tc := &tls.Config{GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -249,6 +249,76 @@ func (l *sniffListener) sniff(c net.Conn) {
 	} else {
 		l.ch <- pc
 	}
+}
+
+// ---------------- 局域网直连（没有 Tailscale 时） ----------------
+
+// 监听所有网卡：同一 Wi-Fi 的设备用 192.168.x.x:端口 直接连；之后如果连上了 Tailscale，地址自动换成 Tailscale 的
+func runLAN(cfg config, o hostOpts, port int) {
+	pt := port
+	if pt == 0 {
+		pt = 21130
+	}
+	for i := 0; i < 20 && portBusy("127.0.0.1", pt); i++ {
+		log.Printf(L("端口 %d 已被其他程序使用，换下一个"), pt)
+		pt++
+	}
+	ln, err := net.Listen("tcp4", fmt.Sprintf("0.0.0.0:%d", pt))
+	if err != nil {
+		log.Fatalf("listen :%d: %v", pt, err)
+	}
+	serveTailscale(ln, fmt.Sprintf("127.0.0.1:%d", pt), newRelay(o.key).handler(), pt)
+	o.relayURL = fmt.Sprintf("ws://127.0.0.1:%d/ws/host", pt)
+	addr := net.JoinHostPort(lanIP(), fmt.Sprint(pt))
+	panel = panelState{Addr: addr, Mode: "lan"}
+	log.Print(L("局域网直连模式：同一 Wi-Fi 下的设备可以直接连接"))
+	banner(cfg, addr)
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			if ts := tailscaleIP(); ts != "" {
+				panel = panelState{Addr: net.JoinHostPort(ts, fmt.Sprint(pt)), Mode: "tailscale"}
+			} else {
+				panel = panelState{Addr: net.JoinHostPort(lanIP(), fmt.Sprint(pt)), Mode: "lan"}
+			}
+		}
+	}()
+	runHost(o)
+}
+
+// 本机的局域网地址（优先 192.168 / 10 / 172.16 私有地址）
+func lanIP() string {
+	// 先看实际上网用的网卡（UDP 的 Dial 不发包，只选路由）：电脑上有 VMware 等虚拟网卡时不会选错
+	if c, err := net.Dial("udp4", "8.8.8.8:53"); err == nil {
+		ip := c.LocalAddr().(*net.UDPAddr).IP
+		c.Close()
+		if ip.IsPrivate() {
+			return ip.String()
+		}
+	}
+	ifs, _ := net.Interfaces()
+	for _, i := range ifs {
+		if i.Flags&net.FlagUp == 0 || i.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, _ := i.Addrs()
+		for _, a := range addrs {
+			if n, ok := a.(*net.IPNet); ok && n.IP.To4() != nil && n.IP.IsPrivate() {
+				return n.IP.String()
+			}
+		}
+	}
+	return "127.0.0.1"
+}
+
+func tailscaleInstalled() bool {
+	if os.Getenv("RDESK_NO_TS") == "1" {
+		return false
+	}
+	if _, err := os.Stat("/Applications/Tailscale.app"); err == nil {
+		return true
+	}
+	return tailscaleBin() != ""
 }
 
 // ---------------- 临时分享（Cloudflare 快速隧道） ----------------

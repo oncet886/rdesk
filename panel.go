@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -34,7 +33,6 @@ func registerPanel(mux *http.ServeMux) {
 		}
 		cfg := loadConfig()
 		screen, access := permStatus()
-		_, appErr := os.Stat("/Applications/Tailscale.app")
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
 		json.NewEncoder(w).Encode(map[string]any{
@@ -43,7 +41,7 @@ func registerPanel(mux *http.ServeMux) {
 			"web": webSnapshot(), "update": updSnapshot(),
 			"autostart": map[string]bool{"can": autostartSupported(), "on": autostartEnabled()},
 			"version":   version, "screen": screen, "access": access,
-			"tsIP": tailscaleIP(), "tsInstalled": appErr == nil || tailscaleBin() != "",
+			"tsIP": tailscaleIP(), "tsInstalled": tailscaleInstalled(),
 		})
 	})
 	mux.HandleFunc("/api/newpw", func(w http.ResponseWriter, r *http.Request) {

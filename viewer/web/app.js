@@ -94,8 +94,8 @@ function wsURL(server, id) {
   // 只填了电脑名（如 xxx.ts.net）没写端口：被控端默认端口 21130；Cloudflare 临时分享地址走默认 443
   if (bare && !u.port && !/\.trycloudflare\.com$/i.test(u.hostname)) u.port = "21130";
   if (location.protocol === "https:" && u.protocol !== "wss:") return null;
-  // Tailscale IP 没有证书，浏览器的加密连接一定失败：提示改用「浏览器连接」链接里的电脑名
-  if (location.protocol === "https:" && /^100\.\d+\.\d+\.\d+$/.test(u.hostname)) return null;
+  // IP 地址没有证书，浏览器的加密连接一定失败：提示改用「临时分享」或「浏览器连接」链接
+  if (location.protocol === "https:" && /^\d+\.\d+\.\d+\.\d+$/.test(u.hostname)) return null;
   u.pathname = u.pathname.replace(/\/+$/, "").replace(/\/ws\/view$/, "") + "/ws/view";
   u.search = "?id=" + encodeURIComponent(id);
   return u.toString();

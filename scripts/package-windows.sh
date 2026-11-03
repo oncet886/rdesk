@@ -16,30 +16,30 @@ for pair in amd64:x86_64:x64 arm64:aarch64:arm64; do
 RDesk Host for Windows v$VER（测试版 / Beta）
 
 【中文】
-1. 先安装 Tailscale（https://tailscale.com/download/windows），登录和手机同一个账号。
-2. 双击 rdesk.exe。
+1. 双击 rdesk.exe。
    · 第一次会提示「Windows 已保护你的电脑」：点「更多信息」→「仍要运行」（测试版还没有数字签名）。
    · 防火墙询问时，勾选「专用网络」和「公用网络」，点「允许」。
-3. RDesk Host 在后台运行，任务栏右下角托盘里有它的图标（看不到就点「^」展开）。
-   第一次运行会自动打开控制面板，显示远程地址、设备 ID 和密码，填到手机或电脑上的 RDesk 远控里即可连接。
+2. RDesk Host 在后台运行，任务栏右下角托盘里有它的图标（看不到就点「^」展开）。
+   第一次运行会自动打开控制面板，显示远程地址、设备 ID 和密码，填到手机或电脑上的 RDesk 远控里即可连接（同一个 Wi-Fi 下直接连）。
+   不在同一网络时用「临时分享」；已经在用 Tailscale 的话，登录同一账号即可直连（可选）。
    右键托盘图标：复制地址 / ID / 密码、打开控制面板、断开控制端、换密码、退出等；双击图标打开控制面板。
-4. 控制面板里还有：浏览器连接、临时分享、自动更新、登录时自动启动。
-5. 程序会自动更新（没人连着时自动下载新版并重启），可以在控制面板里关掉。
-6. 第一次运行后会自动设置「登录时自动启动」，电脑重启、登录后被控端自己打开；可以在控制面板里关掉。
+3. 控制面板里还有：浏览器连接、临时分享、自动更新、登录时自动启动。
+4. 程序会自动更新（没人连着时自动下载新版并重启），可以在控制面板里关掉。
+5. 第一次运行后会自动设置「登录时自动启动」，电脑重启、登录后被控端自己打开；可以在控制面板里关掉。
 限制：Windows 锁屏和 UAC 弹窗（安全桌面）期间看不到、也控制不了，需要在本机解锁。
 更多：https://rdeskapp.com
 
 [English]
-1. Install Tailscale (https://tailscale.com/download/windows) and sign in to the same account as your phone.
-2. Double-click rdesk.exe.
+1. Double-click rdesk.exe.
    - If Windows SmartScreen says "Windows protected your PC", click "More info" → "Run anyway" (the beta is not code-signed yet).
    - When the firewall asks, allow both Private and Public networks.
-3. RDesk Host runs in the background with an icon in the notification area (click "^" if hidden).
-   The first run opens the control panel with the address, device ID and password; enter them in the RDesk app.
+2. RDesk Host runs in the background with an icon in the notification area (click "^" if hidden).
+   The first run opens the control panel with the address, device ID and password; enter them in the RDesk app (on the same Wi-Fi it connects directly).
+   On another network use Temporary Sharing, or sign in to Tailscale if you already use it (optional).
    Right-click the tray icon to copy details, open the control panel, disconnect a viewer, change the password or quit.
-4. The control panel also has browser access, temporary sharing, automatic updates and open at login.
-5. RDesk Host updates itself automatically when no viewer is connected; you can turn this off in the control panel.
-6. After the first run it opens automatically when you sign in to Windows; you can turn this off in the control panel.
+3. The control panel also has browser access, temporary sharing, automatic updates and open at login.
+4. RDesk Host updates itself automatically when no viewer is connected; you can turn this off in the control panel.
+5. After the first run it opens automatically when you sign in to Windows; you can turn this off in the control panel.
 Limitation: the lock screen and UAC prompts (secure desktop) cannot be seen or controlled remotely yet.
 More: https://rdeskapp.com
 EOF

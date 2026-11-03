@@ -13,16 +13,16 @@ DL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2
 
 # 各平台状态：上架后把 None 换成商店链接即可
 APP_STORE = None   # "https://apps.apple.com/app/id6826686347"
-GOOGLE_PLAY = None  # "https://play.google.com/store/apps/details?id=com.gphdigital.rdesk"
+GOOGLE_PLAY = "https://play.google.com/store/apps/details?id=com.gphdigital.rdesk"
 
 T = {
     "zh": dict(lang="zh-Hans", home="/", nav=[("/#features", "功能"), ("/#download", "下载"), ("/web/", "网页版"), ("/#start", "使用方法"), ("/privacy/", "隐私")],
                other=("/en/", "English"), skip="跳到正文", theme="切换外观", menu="打开导航",
-               foot="用手机或电脑远程控制你自己的电脑。Tailscale 直连、端到端加密。",
+               foot="用手机或电脑远程控制你自己的电脑。同一 Wi-Fi 直连，端到端加密。",
                legal="隐私政策", contact="联系我们", source="源代码", company="© 2026 GPH Digital LLC · 美国亚利桑那州"),
     "en": dict(lang="en", home="/en/", nav=[("/en/#features", "Features"), ("/en/#download", "Download"), ("/web/", "Web app"), ("/en/#start", "Get started"), ("/privacy/#en", "Privacy")],
                other=("/", "中文"), skip="Skip to main content", theme="Change color theme", menu="Open navigation",
-               foot="Control your own computer from your phone or another computer. Direct over Tailscale, end-to-end encrypted.",
+               foot="Control your own computer from your phone or another computer. Direct on your Wi-Fi, end-to-end encrypted.",
                legal="Privacy Policy", contact="Contact", source="Source code", company="© 2026 GPH Digital LLC · Arizona, USA"),
 }
 
@@ -131,22 +131,22 @@ def downloads(lang):
 
 
 ZH = f"""<section class="app-hero"><div class="container app-hero-grid">
-  <div><p class="eyebrow">远程桌面 · Tailscale 直连</p><h1>RDesk 远控</h1><p class="app-tagline">在手机上控制你自己的电脑</p>
-  <p class="lead" style="margin-top:20px">手机和电脑通过 Tailscale 点对点直连，不经过任何中转服务器，画面、声音和每一次点按全程端到端加密。硬件视频最高每秒 60 帧，听得到电脑的声音，看得到真实的光标。</p>
+  <div><p class="eyebrow">远程桌面 · 端到端加密</p><h1>RDesk 远控</h1><p class="app-tagline">在手机上控制你自己的电脑</p>
+  <p class="lead" style="margin-top:20px">同一 Wi-Fi 下手机和电脑直接相连，不经过任何中转服务器；不在同一网络时可以用临时加密链接。画面、声音和每一次点按全程端到端加密。硬件视频最高每秒 60 帧，听得到电脑的声音，看得到真实的光标。</p>
   <div class="hero-actions download-actions"><a class="button button-primary" href="#download">{DL}下载</a><a class="button button-ghost" href="{GH}" rel="noopener">GitHub 源代码</a></div>
   <p style="margin-top:22px"><span class="status-pill">免费 · 被控端开源（MIT）</span></p></div>
-  <div class="app-hero-media phone"><div class="device-phone"><img src="/assets/rdesk-iphone-start.jpg" width="900" height="1957" alt="iPhone 上的 RDesk 远控：Tailscale 已连接、三步开始，以及地址、设备 ID、密码输入框" fetchpriority="high"></div></div>
+  <div class="app-hero-media phone"><div class="device-phone"><img src="/assets/rdesk-iphone-start.jpg" width="900" height="1957" alt="手机上的 RDesk 远控：三步开始、试用演示，以及地址、设备 ID、密码输入框" fetchpriority="high"></div></div>
 </div></section>
 <section class="section-tight hairline"><div class="container"><dl class="facts app-facts">
   <div><dt>控制端</dt><dd>iPhone / iPad、安卓、Mac、Windows、<a class="textlink" href="/web/">浏览器</a></dd></div>
   <div><dt>被控端</dt><dd>Mac（macOS 14+）、Windows 10 / 11</dd></div>
-  <div><dt>连接</dt><dd>Tailscale 点对点直连，不经过中转</dd></div>
+  <div><dt>连接</dt><dd>同一 Wi-Fi 直连；外出时用临时分享链接，Tailscale 可选</dd></div>
   <div><dt>语言</dt><dd>简体中文、繁體中文、English、日本語、한국어 等 10 种，跟随系统</dd></div>
   <div><dt>价格</dt><dd>免费，没有账号、没有广告</dd></div>
 </dl></div></section>
 <section class="app-section" id="features"><div class="container">
   <div class="feature-grid">
-    <div class="feature"><h3>直连，不中转</h3><p>手机和电脑通过 Tailscale 点对点直接相连，不需要公网 IP，也不用在路由器上开端口。Wi-Fi 和移动网络都一样能用。</p></div>
+    <div class="feature"><h3>直连，不中转</h3><p>同一 Wi-Fi 下直接相连，不用注册账号，也不用在路由器上开端口。外出时用被控端的「临时分享」生成加密链接；已经在用 Tailscale 的话，也可以通过它直连。</p></div>
     <div class="feature"><h3>端到端加密</h3><p>画面、声音和每一次点按都用 AES-256-GCM 加密，密钥由设备 ID 和密码推导。我们没有服务器，也看不到你的屏幕。</p></div>
     <div class="feature"><h3>手机网络也流畅</h3><p>电脑用硬件 H.264 编码，最高每秒 60 帧。网络一忙码率立刻降下来，宁可稍糊也不卡，恢复后自动升回去。</p></div>
     <div class="feature"><h3>听得到电脑的声音</h3><p>在电脑上看视频、听歌，手机上同步有声音。一键静音，静音后不再传声音，省流量。</p></div>
@@ -156,35 +156,35 @@ ZH = f"""<section class="app-hero"><div class="container app-hero-grid">
 </div></section>
 {downloads("zh")}
 <section class="app-section alt" id="start"><div class="container split">
-  <div class="phone-row"><div class="device-phone"><img src="/assets/rdesk-iphone-light.jpg" width="900" height="1957" alt="RDesk 远控白天模式的开始页面，带三步上手说明" loading="lazy"></div><div class="device-phone"><img src="/assets/rdesk-iphone-tailscale.jpg" width="900" height="1957" alt="RDesk 远控提示没检测到 Tailscale，并提供下载按钮" loading="lazy"></div></div>
+  <div class="phone-row"><div class="device-phone"><img src="/assets/rdesk-iphone-light.jpg" width="900" height="1957" alt="RDesk 远控白天模式的开始页面，带三步上手说明" loading="lazy"></div><div class="device-phone"><img src="/assets/rdesk-iphone-demo.jpg" width="900" height="1957" alt="RDesk 远控的演示模式：一台内置的模拟电脑" loading="lazy"></div></div>
   <div><h2>三步 <em>开始使用。</em></h2>
     <ol class="lead" style="margin-top:18px;padding-left:1.2em;line-height:1.8">
       <li>在要被控制的电脑上下载 <a class="textlink" href="{GH_LATEST}" rel="noopener">RDesk Host</a>。Mac：拖进「应用程序」并打开，允许「屏幕录制」和「辅助功能」，菜单栏图标里能看到地址、设备 ID 和密码；Windows：解压后双击 rdesk.exe，它在任务栏右下角托盘里运行，第一次会自动打开控制面板显示这三项。</li>
-      <li>电脑和手机都安装 <a class="textlink" href="https://tailscale.com/download" rel="noopener">Tailscale</a>，登录同一个账号（个人使用免费）。</li>
+      <li>让手机和电脑连接同一个 Wi-Fi。不在同一网络时，用被控端的「临时分享」链接；也可以自行使用 <a class="textlink" href="https://tailscale.com/download" rel="noopener">Tailscale</a>（可选）。</li>
       <li>打开手机上的 RDesk 远控，填入地址、设备 ID、密码，点「连接」。没装 App 也可以用<a class="textlink" href="/web/">网页版</a>。</li>
     </ol>
-    <p class="muted" style="margin-top:14px;font-size:15px">App 会自动检测 Tailscale，没连上会提示你怎么做。</p>
+    <p class="muted" style="margin-top:14px;font-size:15px">还没装电脑端？打开 App 点「试用演示」，先用内置的模拟电脑体验一下。</p>
   </div>
 </div></section>
 <section class="section-tight"><div class="container"><div class="band"><div><p class="eyebrow">有问题？</p><h2>需要帮助或想要 <em>新功能？</em></h2></div><a class="button button-primary" href="mailto:{MAIL}?subject=RDesk">发邮件给我们</a></div></div></section>"""
 
 EN = f"""<section class="app-hero"><div class="container app-hero-grid">
-  <div><p class="eyebrow">Remote desktop · Direct over Tailscale</p><h1>RDesk</h1><p class="app-tagline">Control your own computer from your phone</p>
-  <p class="lead" style="margin-top:20px">Your phone connects to your computer peer to peer over Tailscale, with no relay server in between. Video, sound and every tap are end-to-end encrypted. Hardware video up to 60 fps, your computer's audio, and its real cursor.</p>
+  <div><p class="eyebrow">Remote desktop · End-to-end encrypted</p><h1>RDesk</h1><p class="app-tagline">Control your own computer from your phone</p>
+  <p class="lead" style="margin-top:20px">On the same Wi-Fi your phone connects straight to your computer, with no relay server in between; away from home, use a temporary encrypted link. Video, sound and every tap are end-to-end encrypted. Hardware video up to 60 fps, your computer's audio, and its real cursor.</p>
   <div class="hero-actions download-actions"><a class="button button-primary" href="#download">{DL}Download</a><a class="button button-ghost" href="{GH}" rel="noopener">Source on GitHub</a></div>
   <p style="margin-top:22px"><span class="status-pill">Free · Open-source host (MIT)</span></p></div>
-  <div class="app-hero-media phone"><div class="device-phone"><img src="/assets/rdesk-iphone-start.jpg" width="900" height="1957" alt="RDesk on iPhone: Tailscale connected, three setup steps, and fields for address, device ID and password" fetchpriority="high"></div></div>
+  <div class="app-hero-media phone"><div class="device-phone"><img src="/assets/rdesk-iphone-start.jpg" width="900" height="1957" alt="RDesk on a phone: three setup steps, the demo, and fields for address, device ID and password" fetchpriority="high"></div></div>
 </div></section>
 <section class="section-tight hairline"><div class="container"><dl class="facts app-facts">
   <div><dt>Viewer</dt><dd>iPhone / iPad, Android, Mac, Windows, <a class="textlink" href="/web/">browser</a></dd></div>
   <div><dt>Host</dt><dd>Mac (macOS 14+), Windows 10 / 11</dd></div>
-  <div><dt>Connection</dt><dd>Peer to peer over Tailscale, no relay</dd></div>
+  <div><dt>Connection</dt><dd>Direct on the same Wi-Fi; temporary link when away; Tailscale optional</dd></div>
   <div><dt>Languages</dt><dd>English, 中文, 日本語, 한국어, Español, Français, Deutsch, Português, Русский. Follows your system</dd></div>
   <div><dt>Price</dt><dd>Free. No accounts, no ads</dd></div>
 </dl></div></section>
 <section class="app-section" id="features"><div class="container">
   <div class="feature-grid">
-    <div class="feature"><h3>Direct, not relayed</h3><p>Your phone and computer connect directly over Tailscale. No public IP, no port forwarding. Works on Wi-Fi and cellular.</p></div>
+    <div class="feature"><h3>Direct, not relayed</h3><p>On the same Wi-Fi they connect directly: no account, no port forwarding. Away from home, the host creates a temporary encrypted link. Already using Tailscale? You can connect through it too.</p></div>
     <div class="feature"><h3>End-to-end encrypted</h3><p>Video, sound and every tap are encrypted with AES-256-GCM, keyed from the device ID and password. There is no RDesk server and we never see your screen.</p></div>
     <div class="feature"><h3>Smooth on cellular</h3><p>Hardware H.264 up to 60 fps. When the network gets busy the bitrate drops at once, so the picture softens instead of freezing, then climbs back.</p></div>
     <div class="feature"><h3>Hear your computer</h3><p>Videos and music on your computer play on your phone too. One tap mutes it and stops sending audio to save data.</p></div>
@@ -194,11 +194,11 @@ EN = f"""<section class="app-hero"><div class="container app-hero-grid">
 </div></section>
 {downloads("en")}
 <section class="app-section alt" id="start"><div class="container split">
-  <div class="phone-row"><div class="device-phone"><img src="/assets/rdesk-iphone-light.jpg" width="900" height="1957" alt="RDesk start screen in light mode with three setup steps" loading="lazy"></div><div class="device-phone"><img src="/assets/rdesk-iphone-tailscale.jpg" width="900" height="1957" alt="RDesk telling you Tailscale is not connected, with a button to get it" loading="lazy"></div></div>
+  <div class="phone-row"><div class="device-phone"><img src="/assets/rdesk-iphone-light.jpg" width="900" height="1957" alt="RDesk start screen in light mode with three setup steps" loading="lazy"></div><div class="device-phone"><img src="/assets/rdesk-iphone-demo.jpg" width="900" height="1957" alt="RDesk demo mode: a simulated computer built into the app" loading="lazy"></div></div>
   <div><h2>Three steps <em>to start.</em></h2>
     <ol class="lead" style="margin-top:18px;padding-left:1.2em;line-height:1.8">
       <li>On the computer you want to control, download <a class="textlink" href="{GH_LATEST}" rel="noopener">RDesk Host</a>. Mac: move it to Applications, open it and allow Screen Recording and Accessibility; the menu bar icon shows the address, device ID and password. Windows: unzip and double-click rdesk.exe; it runs in the notification area and the first run opens the control panel with the same three items.</li>
-      <li>Install <a class="textlink" href="https://tailscale.com/download" rel="noopener">Tailscale</a> on both devices and sign in to the same account (free for personal use).</li>
+      <li>Connect your phone and computer to the same Wi-Fi. On another network, use the host's Temporary Sharing link, or your own <a class="textlink" href="https://tailscale.com/download" rel="noopener">Tailscale</a> setup (optional).</li>
       <li>Open RDesk on your phone, enter the address, device ID and password, and tap Connect. No app installed? Use the <a class="textlink" href="/web/">web app</a>.</li>
     </ol>
   </div>
@@ -209,23 +209,23 @@ PRIVACY = f"""<section class="app-section"><div class="container" style="max-wid
 <p class="eyebrow">隐私政策 · Privacy Policy</p><h1>RDesk 隐私政策</h1><p class="muted">生效日期：2026 年 10 月 24 日 · GPH Digital LLC</p>
 <div class="lead" style="margin-top:22px;line-height:1.85">
 <p>RDesk（包括手机和电脑上的控制端，以及被控端 RDesk Host）不收集任何个人数据：没有账号、没有统计分析、没有广告，也没有第三方 SDK。</p>
-<p>你连接过的电脑列表和你选择记住的密码只保存在你自己的设备上，密码用系统钥匙串 / Keystore 加密。画面、声音以及你的点按和键盘输入只在你自己的设备之间直接传输，全程用 AES-256-GCM 端到端加密，通常经过你自己的 Tailscale 网络。GPH Digital LLC 在这条路径上没有任何服务器，看不到其中任何内容。App 只申请网络权限。</p>
-<p>RDesk Host 运行在你自己的电脑上，不会向我们发送任何数据，源代码公开在 <a class="textlink" href="{GH}" rel="noopener">github.com/oncet886/rdesk</a>；从 GitHub 下载适用 GitHub 的隐私声明。Tailscale 是你自行安装和登录的独立服务，适用 Tailscale 自己的条款。</p>
+<p>你连接过的电脑列表和你选择记住的密码只保存在你自己的设备上，密码用系统钥匙串 / Keystore 加密。画面、声音以及你的点按和键盘输入只在你自己的设备之间直接传输，全程用 AES-256-GCM 端到端加密。同一局域网内是直接传输；使用「临时分享」时经过 Cloudflare 隧道转发，它只能看到加密后的数据；如果你选择使用 Tailscale，则经过你自己的 Tailscale 网络。GPH Digital LLC 在这条路径上没有任何服务器，看不到其中任何内容。App 只申请网络权限。</p>
+<p>RDesk Host 运行在你自己的电脑上，不会向我们发送任何数据，源代码公开在 <a class="textlink" href="{GH}" rel="noopener">github.com/oncet886/rdesk</a>；从 GitHub 下载适用 GitHub 的隐私声明。Tailscale 和 Cloudflare 是独立的第三方服务，只在你选择使用相应功能时才会用到，适用它们自己的条款。</p>
 <p>如有问题请联系 <a class="textlink" href="mailto:{MAIL}">{MAIL}</a>。</p>
 </div>
 <h2 id="en" style="margin-top:48px">Privacy Policy (English)</h2><p class="muted">Effective October 24, 2026 · GPH Digital LLC</p>
 <div class="lead" style="margin-top:18px;line-height:1.75">
 <p>RDesk (the viewer apps for phones and computers, and the RDesk Host companion app) does not collect any personal data. It has no accounts, analytics, advertising or third-party SDKs.</p>
-<p>The list of computers you connect to and any password you choose to remember are stored only on your own device; remembered passwords are encrypted with the system keychain or keystore. Screen images, sound and your taps and keystrokes travel directly between your own devices, encrypted end to end with AES-256-GCM, usually over your own Tailscale network. GPH Digital LLC operates no server in that path and cannot see any of it. The apps ask only for network access.</p>
-<p>RDesk Host runs on your own computer, sends nothing to us, and is open source at <a class="textlink" href="{GH}" rel="noopener">github.com/oncet886/rdesk</a>; downloading it from GitHub is subject to GitHub's privacy statement. Tailscale is a separate service you install and sign in to under Tailscale's own terms.</p>
+<p>The list of computers you connect to and any password you choose to remember are stored only on your own device; remembered passwords are encrypted with the system keychain or keystore. Screen images, sound and your taps and keystrokes travel directly between your own devices, encrypted end to end with AES-256-GCM. On the same local network they travel directly; with Temporary Sharing they pass through a Cloudflare tunnel, which only sees encrypted data; if you choose to use Tailscale, they pass over your own Tailscale network. GPH Digital LLC operates no server in that path and cannot see any of it. The apps ask only for network access.</p>
+<p>RDesk Host runs on your own computer, sends nothing to us, and is open source at <a class="textlink" href="{GH}" rel="noopener">github.com/oncet886/rdesk</a>; downloading it from GitHub is subject to GitHub's privacy statement. Tailscale and Cloudflare are separate third-party services, used only when you choose those features, under their own terms.</p>
 <p>Questions: <a class="textlink" href="mailto:{MAIL}">{MAIL}</a>.</p>
 </div></div></section>"""
 
 PAGES = [
     ("zh", "/", "index.html", "RDesk 远控 · 用手机远程控制你的电脑",
-     "RDesk 远控：用手机远程控制你自己的电脑。Tailscale 直连、端到端加密，硬件 H.264 最高 60 帧，带声音和真实光标。被控端开源免费。", ZH),
+     "RDesk 远控：用手机远程控制你自己的电脑。同一 Wi-Fi 直连、端到端加密，硬件 H.264 最高 60 帧，带声音和真实光标。被控端开源免费。", ZH),
     ("en", "/en/", "en/index.html", "RDesk · Control your computer from your phone",
-     "RDesk: control your own computer from your phone over a direct, end-to-end encrypted Tailscale connection. Hardware H.264 up to 60 fps, audio and the real cursor. Free, open-source host.", EN),
+     "RDesk: control your own computer from your phone over a direct, end-to-end encrypted connection. Hardware H.264 up to 60 fps, audio and the real cursor. Free, open-source host.", EN),
     ("zh", "/privacy/", "privacy/index.html", "隐私政策 · RDesk",
      "RDesk 不收集任何个人数据。RDesk collects no personal data.", PRIVACY),
 ]

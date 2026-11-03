@@ -58,7 +58,7 @@ func menuWillOpen() {
 	if ts := tailscaleIP(); ts != "" {
 		setItem(tagTailscale, fmt.Sprintf(L("✓ Tailscale 已连接（%s）"), ts), false, false, false)
 	} else {
-		setItem(tagTailscale, L("⚠️ Tailscale 没连接 — 点击下载或打开"), true, false, false)
+		setItem(tagTailscale, "", false, false, true) // Tailscale 是可选的，没装不提示
 	}
 	screen, access := permStatus()
 	switch {
