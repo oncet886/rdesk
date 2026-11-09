@@ -90,6 +90,19 @@ func applyUpdate(zipPath string) error {
 
 func updateCleanup() { os.Remove(selfExe() + ".old") }
 
+// 启动一个新进程（等本进程退出后接手），然后退出：改了中继设置后用新设置重启
+func restartSelf() error {
+	cmd := exec.Command(selfExe(), os.Args[1:]...)
+	cmd.Dir, _ = os.Getwd()
+	cmd.Env = append(os.Environ(), "RDESK_WAIT_PID="+strconv.Itoa(os.Getpid()))
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x00000008}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	exitApp(0)
+	return nil
+}
+
 // 升级后的新进程：等旧进程退出（让出端口）再继续，最多等 15 秒
 func waitOldInstance() {
 	pid, _ := strconv.Atoi(os.Getenv("RDESK_WAIT_PID"))

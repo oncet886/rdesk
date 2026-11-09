@@ -76,6 +76,22 @@ func applyUpdate(zip string) error {
 	return nil
 }
 
+// 退出后重新打开本 App（改了中继设置后用新设置重启）
+func restartSelf() error {
+	app := appBundle()
+	if app == "" {
+		return errors.New("not running from an app bundle")
+	}
+	sh := fmt.Sprintf(`while kill -0 %d 2>/dev/null; do sleep 0.2; done; open %q`, os.Getpid(), app)
+	cmd := exec.Command("/bin/sh", "-c", sh)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	exitApp(0)
+	return nil
+}
+
 // 用 zip 里的新 App 替换 app（核对签名后一次改名换掉）
 func replaceApp(app, zip string) error {
 	// 临时目录放在 App 旁边：同一个磁盘，替换是一次改名

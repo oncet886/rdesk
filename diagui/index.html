@@ -61,6 +61,9 @@
   .webrow b { display: block; font-size: 14px; margin-bottom: 4px; }
   .webrow .link { font-family: ui-monospace, "SF Mono", Menlo, monospace; word-break: break-all; color: var(--info); margin: 6px 0; }
   .webrow .btn { display: inline-block; margin: 8px 6px 0 0; text-decoration: none; }
+  .webrow summary { cursor: pointer; }
+  .webrow summary b { display: inline; }
+  .webrow input[type=text] { display: block; width: 100%; max-width: 420px; box-sizing: border-box; margin-top: 8px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: inherit; font: inherit; }
   .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; }
 </style>
 </head>
@@ -89,6 +92,7 @@
     <div class="perms" id="upd"></div>
     <div class="webrow" id="web" hidden></div>
     <div class="webrow" id="share" hidden></div>
+    <div class="webrow" id="relay" hidden></div>
   </section>
 
   <div id="diagArea">
@@ -174,6 +178,17 @@ const TR = {
   upFail: ["更新失败：{0}", "Update failed: {0}", "更新失敗：{0}", "アップデートに失敗: {0}", "업데이트 실패: {0}", "Error al actualizar: {0}", "Échec de la mise à jour : {0}", "Update fehlgeschlagen: {0}", "Falha na atualização: {0}", "Ошибка обновления: {0}"],
   upManual: ["去官网下载", "Download", "前往官網下載", "ダウンロード", "다운로드", "Descargar", "Télécharger", "Herunterladen", "Baixar", "Скачать"],
   kick: ["断开控制端", "Disconnect Viewer", "中斷控制端", "ビューアを切断", "뷰어 연결 끊기", "Desconectar visor", "Déconnecter", "Viewer trennen", "Desconectar visualizador", "Отключить клиента"],
+  relayTitle: ["自己的中继服务器（可选）", "Your own relay server (optional)", "自己的中繼伺服器（選用）", "独自の中継サーバー（任意）", "내 중계 서버 (선택)", "Tu propio servidor de retransmisión (opcional)", "Votre propre serveur relais (facultatif)", "Eigener Relay-Server (optional)", "Seu próprio servidor de retransmissão (opcional)", "Свой сервер-ретранслятор (необязательно)"],
+  relayHint: ["填上你自己部署的服务器，这台电脑就能在任何网络下被连接，不用 Tailscale。控制端的地址填这个服务器的网址。", "Enter a server you run yourself and this computer can be reached from any network, without Tailscale. In the app, use this server's address.", "填上你自己部署的伺服器，這台電腦就能在任何網路下被連線，不用 Tailscale。控制端的位址填這個伺服器的網址。", "自分で用意したサーバーを入力すると、Tailscale なしでどのネットワークからでも接続できます。アプリにはこのサーバーのアドレスを入力します。", "직접 운영하는 서버를 입력하면 Tailscale 없이 어떤 네트워크에서도 이 컴퓨터에 연결할 수 있습니다. 앱에는 이 서버 주소를 입력하세요.", "Introduce un servidor propio y este equipo será accesible desde cualquier red, sin Tailscale. En la app, usa la dirección de este servidor.", "Indiquez un serveur que vous gérez et cet ordinateur sera joignable depuis n’importe quel réseau, sans Tailscale. Dans l’app, utilisez l’adresse de ce serveur.", "Mit einem eigenen Server ist dieser Computer aus jedem Netz erreichbar, ohne Tailscale. In der App die Adresse dieses Servers eingeben.", "Informe um servidor seu e este computador poderá ser acessado de qualquer rede, sem Tailscale. No app, use o endereço desse servidor.", "Укажите свой сервер — и компьютер будет доступен из любой сети без Tailscale. В приложении введите адрес этого сервера."],
+  relayUrlPh: ["服务器网址，例如 https://relay.example.com", "Server address, e.g. https://relay.example.com", "伺服器網址，例如 https://relay.example.com", "サーバーのアドレス（例: https://relay.example.com）", "서버 주소 (예: https://relay.example.com)", "Dirección del servidor, p. ej. https://relay.example.com", "Adresse du serveur, ex. https://relay.example.com", "Serveradresse, z. B. https://relay.example.com", "Endereço do servidor, ex.: https://relay.example.com", "Адрес сервера, например https://relay.example.com"],
+  relayKeyPh: ["注册密钥（安装服务器时显示的那串）", "Registration key (shown when you installed the server)", "註冊金鑰（安裝伺服器時顯示的那串）", "登録キー（サーバーのインストール時に表示）", "등록 키 (서버 설치 시 표시됨)", "Clave de registro (se muestra al instalar el servidor)", "Clé d’enregistrement (affichée à l’installation du serveur)", "Registrierungsschlüssel (bei der Serverinstallation angezeigt)", "Chave de registro (exibida ao instalar o servidor)", "Ключ регистрации (показан при установке сервера)"],
+  relaySave: ["保存并重启", "Save and restart", "儲存並重新啟動", "保存して再起動", "저장 후 다시 시작", "Guardar y reiniciar", "Enregistrer et redémarrer", "Speichern und neu starten", "Salvar e reiniciar", "Сохранить и перезапустить"],
+  relayClear: ["改回自动连接", "Switch back to automatic", "改回自動連線", "自動接続に戻す", "자동 연결로 되돌리기", "Volver a automático", "Revenir au mode automatique", "Zurück zu automatisch", "Voltar ao automático", "Вернуть автоматический режим"],
+  relayDocs: ["怎么部署服务器？", "How do I set up a server?", "怎麼部署伺服器？", "サーバーの設定方法", "서버 설정 방법", "¿Cómo instalo un servidor?", "Comment installer un serveur ?", "Wie richte ich einen Server ein?", "Como configuro um servidor?", "Как настроить сервер?"],
+  relayOn: ["正在使用：{0}", "In use: {0}", "正在使用：{0}", "使用中: {0}", "사용 중: {0}", "En uso: {0}", "Utilisé : {0}", "Aktiv: {0}", "Em uso: {0}", "Используется: {0}"],
+  relayBad: ["网址要以 https:// 或 http:// 开头", "The address must start with https:// or http://", "網址要以 https:// 或 http:// 開頭", "アドレスは https:// または http:// で始めてください", "주소는 https:// 또는 http://로 시작해야 합니다", "La dirección debe empezar por https:// o http://", "L’adresse doit commencer par https:// ou http://", "Die Adresse muss mit https:// oder http:// beginnen", "O endereço deve começar com https:// ou http://", "Адрес должен начинаться с https:// или http://"],
+  relayRestarting: ["正在重启…几秒后刷新本页", "Restarting… refresh this page in a few seconds", "正在重新啟動…幾秒後重新整理本頁", "再起動中…数秒後にこのページを再読み込みしてください", "다시 시작 중… 몇 초 후 이 페이지를 새로 고치세요", "Reiniciando… actualiza esta página en unos segundos", "Redémarrage… actualisez cette page dans quelques secondes", "Neustart… diese Seite in einigen Sekunden neu laden", "Reiniciando… atualize esta página em alguns segundos", "Перезапуск… обновите страницу через несколько секунд"],
+  relayManual: ["已保存，退出并重新打开 RDesk Host 后生效", "Saved. Quit and reopen RDesk Host to apply", "已儲存，結束並重新開啟 RDesk Host 後生效", "保存しました。RDesk Host を終了して開き直すと反映されます", "저장했습니다. RDesk Host를 종료 후 다시 열면 적용됩니다", "Guardado. Cierra y vuelve a abrir RDesk Host para aplicarlo", "Enregistré. Quittez et rouvrez RDesk Host pour appliquer", "Gespeichert. RDesk Host beenden und neu öffnen", "Salvo. Feche e abra o RDesk Host de novo para aplicar", "Сохранено. Закройте и снова откройте RDesk Host"],
   shareTitle: ["临时分享", "Temporary sharing", "臨時分享", "一時共有", "임시 공유", "Compartir temporalmente", "Partage temporaire", "Temporär teilen", "Compartilhamento temporário", "Временный доступ"],
   shareIdle: ["生成一个公网链接：对方用浏览器打开、输入密码就能控制这台电脑，不用装任何软件。1 小时后自动关闭。", "Creates a public link: open it in any browser and enter the password to control this computer, with nothing to install. Closes after 1 hour.", "產生一個公開連結：對方用瀏覽器開啟、輸入密碼就能控制這台電腦，不用安裝任何軟體。1 小時後自動關閉。", "公開リンクを作成します。ブラウザで開いてパスワードを入力すれば、何もインストールせずに操作できます。1 時間後に自動終了。", "공개 링크를 만듭니다. 브라우저로 열고 비밀번호를 입력하면 설치 없이 제어할 수 있습니다. 1시간 후 자동 종료.", "Crea un enlace público: ábrelo en cualquier navegador e introduce la contraseña para controlar este equipo sin instalar nada. Se cierra tras 1 hora.", "Crée un lien public : ouvrez-le dans un navigateur et saisissez le mot de passe pour contrôler cet ordinateur sans rien installer. Fermeture au bout d’1 heure.", "Erstellt einen öffentlichen Link: im Browser öffnen, Passwort eingeben, ohne Installation steuern. Endet nach 1 Stunde.", "Cria um link público: abra no navegador e digite a senha para controlar este computador sem instalar nada. Fecha após 1 hora.", "Создаёт публичную ссылку: откройте её в браузере и введите пароль — без установки программ. Закроется через 1 час."],
   shareBtn: ["开始临时分享（1 小时）", "Share for 1 Hour", "開始臨時分享（1 小時）", "1 時間共有する", "1시간 공유 시작", "Compartir 1 hora", "Partager 1 heure", "1 Stunde teilen", "Compartilhar por 1 hora", "Открыть доступ на 1 час"],
@@ -278,6 +293,29 @@ async function loadInfo() {
   renderTS();
   renderWeb(info.web || {});
   renderUpd(info.update || {}, info.autostart || {});
+  renderRelay();
+}
+// 自建中继：只在设置变了时重画，免得每 3 秒刷新把正在输入的内容冲掉
+function renderRelay() {
+  const el = $("relay");
+  el.hidden = false;
+  const docs = col === 0 || col === 2 ? "https://rdeskapp.com/self-host/" : "https://rdeskapp.com/en/self-host/";
+  const h = `<details${info.relay ? " open" : ""}><summary><b>${t("relayTitle")}</b></summary>` +
+    `<div class="muted">${t("relayHint")}</div>` +
+    (info.relay ? `<div class="perm-ok">${t("relayOn", esc(info.relay))}</div>` : "") +
+    `<input type="text" id="relayUrl" placeholder="${esc(t("relayUrlPh"))}" value="${esc(info.relay || "")}" autocomplete="off" spellcheck="false">` +
+    `<input type="text" id="relayKey" placeholder="${esc(t("relayKeyPh"))}" autocomplete="off" spellcheck="false">` +
+    `<button class="btn" id="relaySave">${t("relaySave")}</button>` +
+    (info.relay ? `<button class="btn" id="relayClear">${t("relayClear")}</button>` : "") +
+    ` <a href="${docs}" target="_blank" rel="noopener">${t("relayDocs")}</a><div class="muted" id="relayMsg"></div></details>`;
+  if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
+}
+async function saveRelay(url, key) {
+  if (url && !/^https?:\/\//.test(url)) { $("relayMsg").textContent = t("relayBad"); return; }
+  const r = await fetch("api/relay", { method: "POST", headers: { ...H, "Content-Type": "application/json" }, body: JSON.stringify({ URL: url, Key: key }) });
+  if (!r.ok) { $("relayMsg").textContent = t("relayBad"); return; }
+  $("relayMsg").textContent = info.canRestart ? t("relayRestarting") : t("relayManual");
+  if (info.canRestart) setTimeout(() => location.reload(), 5000);
 }
 function renderUpd(u, as) {
   let st = "";
@@ -342,6 +380,8 @@ document.addEventListener("click", async (e) => {
   }
   if (b.id === "updCheck") { await fetch("api/update?check=1", { method: "POST", headers: H }); setTimeout(loadInfo, 500); return; }
   if (b.id === "shareStop") { await fetch("api/share?on=0", { method: "POST", headers: H }); loadInfo(); }
+  if (b.id === "relaySave") return saveRelay($("relayUrl").value.trim(), $("relayKey").value.trim());
+  if (b.id === "relayClear") return saveRelay("", "");
 });
 function renderTS() {
   if (!info) return;

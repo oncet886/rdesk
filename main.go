@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-const version = "0.2.16"
+const version = "0.2.17"
 
 func usage() {
 	fmt.Print(`rdesk ` + version + ` —— 走隧道的远程桌面（类 RustDesk）
@@ -30,6 +30,8 @@ func usage() {
   rdesk host -relay URL      被控端，连到你自己部署的中继（如 https://relay.example.com）
   rdesk relay [-listen :8080] [-tunnel] [-key 密钥]
                              只跑中继服务器（放 VPS 上，或配合 -tunnel 用 Cloudflare 隧道暴露）
+  rdesk relay -domain relay.example.com -key 密钥
+                             中继服务器自动申请 HTTPS 证书（Let's Encrypt，要放开 80 和 443 端口）
 
 被控端可选参数:
   -id ID          指定设备 ID（默认自动生成并保存）
@@ -69,8 +71,16 @@ func main() {
 		tunnel := fs.Bool("tunnel", false, "用 cloudflared 开公网隧道")
 		cert := fs.String("tls-cert", "", "TLS 证书（可选）")
 		tkey := fs.String("tls-key", "", "TLS 私钥（可选）")
+		domain := fs.String("domain", "", "域名：自动申请 HTTPS 证书（Let's Encrypt，需要 80 和 443 端口）")
+		certDir := fs.String("cert-dir", "", "证书缓存目录（默认在配置目录下）")
 		fs.Parse(args)
 		r := newRelay(*key)
+		if *key == "" {
+			log.Print("提醒：没设 -key，任何人都能把被控端注册到这台中继上")
+		}
+		if *domain != "" {
+			log.Fatal(serveAutocert(r.handler(), *domain, *certDir))
+		}
 		ln, err := net.Listen("tcp", *listen)
 		if err != nil {
 			log.Fatal(err)
@@ -111,6 +121,13 @@ func main() {
 
 		cfg := loadConfig()
 		firstRun := cfg.ID == ""
+		// 控制面板里设置的自建中继（命令行参数优先）
+		if *relayURL == "" {
+			*relayURL = cfg.Relay
+		}
+		if *key == "" {
+			*key = cfg.RelayKey
+		}
 		if cfg.Diag {
 			diagEnabled = true
 		}
@@ -259,6 +276,9 @@ type config struct {
 	NoAutoUpdate bool `json:"noAutoUpdate,omitempty"`
 	// Windows：已经按默认设置过登录时自动启动（之后以用户的选择为准）
 	AutostartAsked bool `json:"autostartAsked,omitempty"`
+	// 自建中继：填了就通过这台服务器接受远程连接（控制面板里设置）
+	Relay    string `json:"relay,omitempty"`
+	RelayKey string `json:"relayKey,omitempty"`
 }
 
 func configPath() string {

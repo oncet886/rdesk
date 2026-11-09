@@ -124,9 +124,28 @@ function setBusy(label) {
 $("#form").onsubmit = (e) => { e.preventDefault(); start(); };
 $("#cancel").onclick = () => S?.close();
 
+// 连着时意外断了（切到别的 App 后被系统掐断、网络切换、被控端重启）：留在画面上自动重连；30 秒都连不上才退回登录页
+const RS = { o: null, until: 0, timer: 0 };
+function reconnect() {
+  clearTimeout(RS.timer);
+  if (!RS.o || document.hidden) return; // 在后台不连，回到前台再连
+  if (performance.now() > RS.until) return stopReconnect(T.errClosed);
+  S = new Session({ ...RS.o, resume: true });
+}
+function stopReconnect(msg) {
+  clearTimeout(RS.timer);
+  RS.o = null;
+  $("#reconn").hidden = true;
+  S = null;
+  hideRemote();
+  setBusy("");
+  showError(msg);
+}
+
 class Session {
   constructor(o) {
     Object.assign(this, o);
+    this.o = o;
     this.quality = store.get("quality", "mid");
     this.display = 0;
     this.audioOn = store.get("audioOn", true);
@@ -137,7 +156,11 @@ class Session {
     this.ws.onmessage = (e) => this.onMessage(e.data);
     this.ws.onclose = () => this.closed();
     // 连不上时浏览器可能一直不报错（比如端口不对、对方不在 Tailscale 里）：12 秒还没连上就停
-    this.openTimer = setTimeout(() => { if (!this.connected) { this.error = T.errConnect; this.close(); } }, 12000);
+    this.openTimer = setTimeout(() => {
+      if (this.connected) return;
+      if (this.resume) return this.drop();
+      this.error = T.errConnect; this.close();
+    }, this.resume ? 4000 : 12000);
     this.ws.onerror = () => {};
     this.sendChain = Promise.resolve();
   }
@@ -164,14 +187,15 @@ class Session {
   }
 
   async onMessage(data) {
+    this.lastRecv = performance.now();
     if (typeof data === "string") {
       let o; try { o = JSON.parse(data); } catch { return; }
       if (o.t === "paired") { setBusy(T.verifying); this.msg(M.HELLO, this.settingsJSON()); }
-      else if (o.t === "err") this.fail(o.m || T.errConnect);
+      else if (o.t === "err") { if (this.resume) this.drop(); else this.fail(o.m || T.errConnect); }
       return;
     }
     const d = new Uint8Array(data);
-    if (d[0] === 0) return this.fail(dec.decode(d.subarray(1))); // 明文：密码错误 / 已锁定
+    if (d[0] === 0) return this.fail(dec.decode(d.subarray(1))); // 明文：密码错误 / 已锁定 / 被控端手动断开
     let p;
     try { p = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: d.subarray(1, 13), additionalData: AAD_H2V }, this.aes, d.subarray(13))); }
     catch { return; }
@@ -194,6 +218,7 @@ class Session {
     this.hostMac = info.os === "darwin";
     this.connected = true;
     clearTimeout(this.openTimer);
+    if (this.resume) { clearTimeout(RS.timer); RS.o = null; $("#reconn").hidden = true; }
     this.cx = 32768; this.cy = 32768;
     setBusy("");
     // 记住设备（和密码）
@@ -206,7 +231,7 @@ class Session {
     renderDevices();
     showRemote(this);
     if (info.input === false) toast(T.noInput);
-    else if (COARSE) toast(touchMode === "mouse" ? T.mouseHint : T.touchHint); // 触屏设备：提示手势
+    else if (COARSE && !this.resume) toast(touchMode === "mouse" ? T.mouseHint : T.touchHint); // 触屏设备：提示手势
     this.startAudio();
     this.timer = setInterval(() => this.tick(), 1000);
   }
@@ -343,6 +368,8 @@ class Session {
   }
 
   tick() {
+    // 看门狗：每秒都有 ping 的回应，8 秒什么都没收到就是连接已经死了（切后台回来、网络切换时不一定会报错）
+    if (!document.hidden && performance.now() - this.lastRecv > 8000) return this.drop();
     const b = new Uint8Array(8); new DataView(b.buffer).setFloat64(0, performance.now());
     this.msg(M.PING, b);
     const s = { fps: this.frames, rtt: Math.round(this.rtt), kbps: Math.round(this.bytes * 8 / 1000), decodeMs: Math.round(this.decodeMs * 10) / 10,
@@ -363,17 +390,23 @@ class Session {
   releaseAll() { for (const c of [...this.pressed]) this.key(c, false); }
 
   fail(m) { this.error = m; this.close(); }
-  close() { try { this.ws.close(); } catch {} this.closed(); }
+  close() { this.closing = true; try { this.ws.close(); } catch {} this.closed(); }
+  // 连接已经不通（还没报错）：当成掉线处理
+  drop() { this.ws.onclose = null; try { this.ws.close(); } catch {} this.closed(); }
   closed() {
     if (this.done) return;
     this.done = true;
     clearInterval(this.timer); clearTimeout(this.openTimer);
     try { this.decoder?.close(); } catch {}
     try { this.adec?.close(); this.ac?.close(); } catch {}
-    if (S === this) S = null;
-    hideRemote();
-    setBusy("");
-    showError(this.error || (this.connected ? T.errClosed : T.errConnect));
+    if (!this.closing && (this.connected || this.resume)) {
+      if (!RS.o) { RS.o = this.o; RS.until = performance.now() + 30000; }
+      $("#reconn").hidden = false;
+      RS.timer = setTimeout(reconnect, this.connected ? 0 : 1000);
+      return;
+    }
+    if (S !== this && !RS.o) return;
+    stopReconnect(this.error || (this.connected || this.resume ? T.errClosed : T.errConnect));
   }
 }
 
@@ -397,7 +430,7 @@ const canvas = $("#screen");
 
 function showRemote(s) {
   s.canvas = canvas; s.ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
-  $("#login").hidden = true; $("#remote").hidden = false; $("#waiting").hidden = false;
+  $("#login").hidden = true; $("#remote").hidden = false; $("#waiting").hidden = !!s.resume;
   $("#hostName").textContent = s.host.name || s.id;
   document.title = (s.host.name || s.id) + " · RDesk";
   const q = $("#quality"); q.textContent = "";
@@ -446,7 +479,7 @@ $("#keysBtn").onclick = (e) => { e.stopPropagation(); $(".menu").classList.toggl
 document.addEventListener("click", () => $(".menu").classList.remove("open"));
 $("#quality").onchange = (e) => { if (!S) return; S.quality = e.target.value; store.set("quality", S.quality); S.msg(M.SETTINGS, S.settingsJSON()); canvas.focus(); };
 $("#display").onchange = (e) => { if (!S) return; S.display = +e.target.value; S.msg(M.SETTINGS, S.settingsJSON()); canvas.focus(); };
-$("#byeBtn").onclick = () => S?.close();
+$("#byeBtn").onclick = () => { if (S && !S.done) S.close(); else if (RS.o) stopReconnect(T.errClosed); };
 $("#pasteBtn").onclick = async () => { try { S?.text(await navigator.clipboard.readText()); } catch {} canvas.focus(); };
 // 全屏：浏览器不让真正全屏时（iPhone Safari、内嵌浏览器）退而用页面内全屏：藏起工具栏、画面占满
 const isFs = () => !!document.fullscreenElement || $("#remote").classList.contains("fs");
@@ -715,4 +748,8 @@ window.visualViewport?.addEventListener("scroll", fitViewport);
 window.addEventListener("keydown", (e) => onKey(e, true));
 window.addEventListener("keyup", (e) => onKey(e, false));
 window.addEventListener("blur", () => S?.releaseAll());
-document.addEventListener("visibilitychange", () => { if (document.hidden) S?.releaseAll(); else if (S) S.msg(M.KEYREQ); });
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { S?.releaseAll(); return; }
+  if (S && !S.done) { S.lastRecv = performance.now(); S.msg(M.KEYREQ); } // 后台时收不到数据不算掉线；真的断了看门狗几秒内会发现
+  else if (RS.o) { RS.until = performance.now() + 30000; reconnect(); }
+});

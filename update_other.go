@@ -9,3 +9,4 @@ func updateSupported() bool    { return false }
 func applyUpdate(string) error { return errors.New("not supported") }
 func updateCleanup()           {}
 func waitOldInstance()         {}
+func restartSelf() error       { return errors.New("not supported") }

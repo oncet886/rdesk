@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"runtime"
 	"strings"
@@ -42,7 +43,33 @@ func registerPanel(mux *http.ServeMux) {
 			"autostart": map[string]bool{"can": autostartSupported(), "on": autostartEnabled()},
 			"version":   version, "screen": screen, "access": access,
 			"tsIP": tailscaleIP(), "tsInstalled": tailscaleInstalled(),
+			"relay": cfg.Relay, "canRestart": runtime.GOOS == "darwin" || runtime.GOOS == "windows",
 		})
+	})
+	// 自建中继：保存地址和注册密钥后重启生效；地址留空 = 改回自动（Tailscale / 局域网）
+	mux.HandleFunc("/api/relay", func(w http.ResponseWriter, r *http.Request) {
+		if !localOnly(r) || r.Method != "POST" || r.Header.Get("X-RDesk") != "1" {
+			http.Error(w, "forbidden", 403)
+			return
+		}
+		var req struct{ URL, Key string }
+		if err := json.NewDecoder(io.LimitReader(r.Body, 4096)).Decode(&req); err != nil {
+			http.Error(w, "bad request", 400)
+			return
+		}
+		u := strings.TrimRight(strings.TrimSpace(req.URL), "/")
+		if u != "" && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
+			http.Error(w, "bad url", 400)
+			return
+		}
+		cfg := loadConfig()
+		cfg.Relay, cfg.RelayKey = u, strings.TrimSpace(req.Key)
+		if u == "" {
+			cfg.RelayKey = ""
+		}
+		saveConfig(cfg)
+		w.Write([]byte("ok"))
+		go func() { time.Sleep(300 * time.Millisecond); restartSelf() }()
 	})
 	mux.HandleFunc("/api/newpw", func(w http.ResponseWriter, r *http.Request) {
 		if !localOnly(r) || r.Method != "POST" || r.Header.Get("X-RDesk") != "1" {

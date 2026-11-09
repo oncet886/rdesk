@@ -19,11 +19,11 @@ T = {
     "zh": dict(lang="zh-Hans", home="/", nav=[("/#features", "功能"), ("/#download", "下载"), ("/web/", "网页版"), ("/#start", "使用方法"), ("/privacy/", "隐私")],
                other=("/en/", "English"), skip="跳到正文", theme="切换外观", menu="打开导航",
                foot="用手机或电脑远程控制你自己的电脑。同一 Wi-Fi 直连，端到端加密。",
-               legal="隐私政策", contact="联系我们", source="源代码", company="© 2026 GPH Digital LLC · 美国亚利桑那州"),
+               legal="隐私政策", contact="联系我们", source="源代码", selfhost=("/self-host/", "自建中继服务器"), company="© 2026 GPH Digital LLC · 美国亚利桑那州"),
     "en": dict(lang="en", home="/en/", nav=[("/en/#features", "Features"), ("/en/#download", "Download"), ("/web/", "Web app"), ("/en/#start", "Get started"), ("/privacy/#en", "Privacy")],
                other=("/", "中文"), skip="Skip to main content", theme="Change color theme", menu="Open navigation",
                foot="Control your own computer from your phone or another computer. Direct on your Wi-Fi, end-to-end encrypted.",
-               legal="Privacy Policy", contact="Contact", source="Source code", company="© 2026 GPH Digital LLC · Arizona, USA"),
+               legal="Privacy Policy", contact="Contact", source="Source code", selfhost=("/en/self-host/", "Self-hosted relay"), company="© 2026 GPH Digital LLC · Arizona, USA"),
 }
 
 
@@ -86,8 +86,8 @@ def shell(lang, path, title, desc, body):
 <footer class="site-footer"><div class="container">
   <div class="footer-top">
     <div><a class="footer-brand" href="{t["home"]}">RDesk<span class="footer-period">.</span></a><p>{t["foot"]}</p></div>
-    <div class="footer-links"><p class="footer-label">RDesk</p><a href="{t["nav"][1][0]}">{t["nav"][1][1]}</a><a href="{GH}" rel="noopener">{t["source"]}</a><a href="mailto:{MAIL}?subject=RDesk">{t["contact"]}</a></div>
-    <div class="footer-links"><p class="footer-label">Legal</p><a href="{t["nav"][3][0]}">{t["legal"]}</a><a href="https://gphdigital.com/terms" rel="noopener">Terms of Use</a><a href="https://gphdigital.com/" rel="noopener">GPH Digital LLC</a></div>
+    <div class="footer-links"><p class="footer-label">RDesk</p><a href="{t["nav"][1][0]}">{t["nav"][1][1]}</a><a href="{t["selfhost"][0]}">{t["selfhost"][1]}</a><a href="{GH}" rel="noopener">{t["source"]}</a><a href="mailto:{MAIL}?subject=RDesk">{t["contact"]}</a></div>
+    <div class="footer-links"><p class="footer-label">Legal</p><a href="{t["nav"][4][0]}">{t["legal"]}</a><a href="https://gphdigital.com/terms" rel="noopener">Terms of Use</a><a href="https://gphdigital.com/" rel="noopener">GPH Digital LLC</a></div>
   </div>
   <div class="footer-bottom"><span>{t["company"]}</span><span>rdeskapp.com</span></div>
 </div></footer>
@@ -221,6 +221,60 @@ PRIVACY = f"""<section class="app-section"><div class="container" style="max-wid
 <p>Questions: <a class="textlink" href="mailto:{MAIL}">{MAIL}</a>.</p>
 </div></div></section>"""
 
+SELF_ZH = f"""<section class="app-section"><div class="container" style="max-width:760px">
+<p class="eyebrow">自托管 · Self-hosting</p><h1>自己搭一台中继服务器</h1>
+<div class="lead" style="margin-top:22px;line-height:1.85">
+<p>手机和电脑在同一个 Wi-Fi 下是直接连接的，不需要任何服务器。想在外面随时连回家里或公司的电脑，又不想装 Tailscale，可以用一台云服务器（VPS）自建 RDesk 中继：免费、开源。画面依然是端到端加密的，中继只转发它看不懂的加密数据。</p>
+<h2 style="margin-top:36px">准备</h2>
+<ul><li>一台 Linux 云服务器：1 核 1 GB 就够；远程画面每小时大约用 1～3 GB 流量，建议选包月流量的套餐。</li>
+<li>一个域名，比如 <code>relay.example.com</code>，解析到这台服务器的 IP。</li>
+<li>服务器防火墙放开 80 和 443 端口（80 只用来申请 HTTPS 证书）。</li></ul>
+<h2 style="margin-top:36px">第一步：一行命令装好</h2>
+<p>用 SSH 登录服务器，运行（把域名换成你的）：</p>
+<pre style="background:var(--surface-2,rgba(127,127,127,.12));padding:14px 16px;border-radius:12px;overflow-x:auto;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-all">curl -fsSL https://rdeskapp.com/relay.sh | sudo sh -s -- relay.example.com</pre>
+<p>脚本会下载中继程序、自动申请 HTTPS 证书、设置开机自启，最后显示<b>服务器网址</b>和<b>注册密钥</b>。以后再运行同一行命令就是升级，密钥不变。</p>
+<h2 style="margin-top:36px">第二步：电脑上填服务器</h2>
+<p>打开电脑上的 RDesk Host（0.2.17 或更新）控制面板，展开「自己的中继服务器」，填入服务器网址和注册密钥，点「保存并重启」。控制面板上的远程地址会变成你的服务器网址。</p>
+<h2 style="margin-top:36px">第三步：手机连接</h2>
+<p>手机 App 的地址填 <code>https://relay.example.com</code>，设备 ID 和密码照旧，在任何网络下都能连。没装 App 也可以用浏览器打开这个网址。</p>
+<h2 style="margin-top:36px">用 Docker 部署</h2>
+<pre style="background:var(--surface-2,rgba(127,127,127,.12));padding:14px 16px;border-radius:12px;overflow-x:auto;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-all">docker build -t rdesk-relay -f deploy/Dockerfile https://github.com/oncet886/rdesk.git
+docker run -d --name rdesk-relay --restart always -p 80:80 -p 443:443 -v rdesk-relay:/data \\
+  rdesk-relay -domain relay.example.com -key 自己设一串随机密钥</pre>
+<h2 style="margin-top:36px">常见问题</h2>
+<p><b>安全吗？</b>画面、声音和键鼠用设备密码推导的密钥端到端加密，中继服务器解不开。注册密钥用来防止陌生人把电脑挂到你的服务器上；控制端连接时仍然要输入设备密码。</p>
+<p><b>没有域名？</b>可以运行 <code>rdesk relay -listen :8080 -key 密钥</code>，地址填 <code>http://服务器IP:8080</code>。这样传输层不是 HTTPS，但画面依然端到端加密。</p>
+<p><b>想停用？</b>在控制面板点「改回自动连接」，被控端就回到同一 Wi-Fi 直连 / Tailscale。</p>
+<p>源代码：<a class="textlink" href="{GH}" rel="noopener">github.com/oncet886/rdesk</a>。有问题请写信到 <a class="textlink" href="mailto:{MAIL}">{MAIL}</a>。</p>
+</div></div></section>"""
+
+SELF_EN = f"""<section class="app-section"><div class="container" style="max-width:760px">
+<p class="eyebrow">Self-hosting</p><h1>Run your own relay server</h1>
+<div class="lead" style="margin-top:22px;line-height:1.75">
+<p>On the same Wi-Fi, your phone connects to your computer directly with no server at all. To reach your home or office computer from anywhere without Tailscale, run your own RDesk relay on a cloud server (VPS). It is free and open source. The picture stays end-to-end encrypted: the relay only forwards data it cannot read.</p>
+<h2 style="margin-top:36px">What you need</h2>
+<ul><li>A Linux VPS. 1 CPU and 1 GB RAM is enough; a remote session uses about 1–3 GB of traffic per hour, so pick a plan with generous bandwidth.</li>
+<li>A domain name such as <code>relay.example.com</code> pointing to the server's IP.</li>
+<li>Ports 80 and 443 open on the server (80 is only used to get the HTTPS certificate).</li></ul>
+<h2 style="margin-top:36px">Step 1: install with one command</h2>
+<p>Log in to the server over SSH and run (with your own domain):</p>
+<pre style="background:var(--surface-2,rgba(127,127,127,.12));padding:14px 16px;border-radius:12px;overflow-x:auto;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-all">curl -fsSL https://rdeskapp.com/relay.sh | sudo sh -s -- relay.example.com</pre>
+<p>The script downloads the relay, gets an HTTPS certificate, starts it at boot and prints the <b>server address</b> and <b>registration key</b>. Run the same command again later to upgrade; the key stays the same.</p>
+<h2 style="margin-top:36px">Step 2: point your computer at it</h2>
+<p>Open the control panel of RDesk Host (0.2.17 or later) on your computer, expand "Your own relay server", enter the server address and registration key, and click "Save and restart". The remote address in the panel becomes your server's address.</p>
+<h2 style="margin-top:36px">Step 3: connect from your phone</h2>
+<p>In the app, enter <code>https://relay.example.com</code> as the address with the usual device ID and password, from any network. You can also open that address in a browser.</p>
+<h2 style="margin-top:36px">Docker</h2>
+<pre style="background:var(--surface-2,rgba(127,127,127,.12));padding:14px 16px;border-radius:12px;overflow-x:auto;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-all">docker build -t rdesk-relay -f deploy/Dockerfile https://github.com/oncet886/rdesk.git
+docker run -d --name rdesk-relay --restart always -p 80:80 -p 443:443 -v rdesk-relay:/data \\
+  rdesk-relay -domain relay.example.com -key choose-a-long-random-key</pre>
+<h2 style="margin-top:36px">FAQ</h2>
+<p><b>Is it secure?</b> Video, sound and input are end-to-end encrypted with a key derived from the device password, so the relay cannot read them. The registration key stops strangers from attaching computers to your server, and viewers still need the device password.</p>
+<p><b>No domain name?</b> Run <code>rdesk relay -listen :8080 -key YOUR-KEY</code> and use <code>http://SERVER-IP:8080</code> as the address. The transport is then not HTTPS, but the picture is still end-to-end encrypted.</p>
+<p><b>Want to stop using it?</b> Click "Switch back to automatic" in the control panel and the host goes back to direct Wi-Fi / Tailscale connections.</p>
+<p>Source code: <a class="textlink" href="{GH}" rel="noopener">github.com/oncet886/rdesk</a>. Questions: <a class="textlink" href="mailto:{MAIL}">{MAIL}</a>.</p>
+</div></div></section>"""
+
 PAGES = [
     ("zh", "/", "index.html", "RDesk 远控 · 用手机远程控制你的电脑",
      "RDesk 远控：用手机远程控制你自己的电脑。同一 Wi-Fi 直连、端到端加密，硬件 H.264 最高 60 帧，带声音和真实光标。被控端开源免费。", ZH),
@@ -228,6 +282,10 @@ PAGES = [
      "RDesk: control your own computer from your phone over a direct, end-to-end encrypted connection. Hardware H.264 up to 60 fps, audio and the real cursor. Free, open-source host.", EN),
     ("zh", "/privacy/", "privacy/index.html", "隐私政策 · RDesk",
      "RDesk 不收集任何个人数据。RDesk collects no personal data.", PRIVACY),
+    ("zh", "/self-host/", "self-host/index.html", "自建中继服务器 · RDesk",
+     "用一行命令在自己的云服务器上部署 RDesk 中继：免费开源、自动 HTTPS，画面端到端加密。", SELF_ZH),
+    ("en", "/en/self-host/", "en/self-host/index.html", "Self-hosted relay · RDesk",
+     "Deploy your own RDesk relay on a VPS with one command: free, open source, automatic HTTPS, end-to-end encrypted.", SELF_EN),
 ]
 
 if __name__ == "__main__":
@@ -251,6 +309,8 @@ if __name__ == "__main__":
         shutil.copy(root / "update.json", out / "update.json")
     if (root / "dl").is_dir():
         shutil.copytree(root / "dl", out / "dl")
+    # 自建中继一键安装脚本：curl -fsSL https://rdeskapp.com/relay.sh | sudo sh -s -- 域名
+    shutil.copy(root.parent / "deploy" / "relay.sh", out / "relay.sh")
     (out / "robots.txt").write_text(f"User-agent: *\nAllow: /\nSitemap: {SITE}/sitemap.xml\n")
     urls = "".join(f"<url><loc>{SITE}{p}</loc></url>" for _, p, *_ in PAGES)
     (out / "sitemap.xml").write_text(f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n')
