@@ -12,7 +12,7 @@ SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="
 DL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>'
 
 # 各平台状态：上架后把 None 换成商店链接即可
-APP_STORE = None   # "https://apps.apple.com/app/id6826686347"
+APP_STORE = "https://apps.apple.com/app/id6826686347"
 GOOGLE_PLAY = "https://play.google.com/store/apps/details?id=com.gphdigital.rdesk"
 
 T = {
